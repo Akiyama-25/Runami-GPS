@@ -62,12 +62,13 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Prepare Signing Keystore & keystore.properties
+      - name: Prepare Deterministic Signing Keystore & keystore.properties
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 || secrets.STORE || vars.KEYSTORE_BASE64 }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS || vars.KEY_ALIAS || 'runami_key' }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD || vars.KEY_PASSWORD || 'runami_pass_123456' }}
           STORE_PASSWORD: ${{ secrets.STORE_PASSWORD || vars.STORE_PASSWORD || 'runami_pass_123456' }}
+          SIGNING_SEED: ${{ secrets.SIGNING_SEED || vars.SIGNING_SEED || '' }}
         run: |
           set -euo pipefail
           KEYSTORE_FILE="release-signing.jks"
@@ -77,17 +78,144 @@ jobs:
             echo "Decoding signing keystore from Secrets..."
             echo "$KEYSTORE_BASE64" | base64 -d > "$KEYSTORE_FILE"
           else
-            echo "Generating self-signed RSA keystore via keytool..."
-            keytool -genkeypair -v \
-              -keystore "$KEYSTORE_FILE" \
-              -alias "$KEY_ALIAS" \
-              -keyalg RSA \
-              -keysize 2048 \
-              -validity 10000 \
-              -storepass "$STORE_PASSWORD" \
-              -keypass "$KEY_PASSWORD" \
-              -dname "CN=Akari Runami, OU=Runami GPS, O=Akari, L=Tokyo, S=Tokyo, C=JP"
+            SEED="${SIGNING_SEED:-Akari.Runami.GPS:${KEY_ALIAS}:${STORE_PASSWORD}:${KEY_PASSWORD}}"
+            echo "Generating deterministic RSA-2048 keystore from fixed repository seed..."
+            cat > /tmp/GenDeterministicKeystore.java << 'EOF'
+          import java.io.*;
+          import java.math.BigInteger;
+          import java.nio.charset.StandardCharsets;
+          import java.security.*;
+          import java.security.cert.Certificate;
+          import java.security.cert.CertificateFactory;
+          import java.security.cert.X509Certificate;
+          import java.security.spec.RSAPrivateCrtKeySpec;
+          import java.security.spec.RSAPublicKeySpec;
+
+          public class GenDeterministicKeystore {
+              static BigInteger derivePrime(String label, String seed) throws Exception {
+                  MessageDigest md = MessageDigest.getInstance("SHA-256");
+                  byte[] raw = new byte[128];
+                  for (int i = 0; i < 4; i++) {
+                      md.reset();
+                      md.update(label.getBytes(StandardCharsets.UTF_8));
+                      md.update((byte) ':');
+                      md.update(seed.getBytes(StandardCharsets.UTF_8));
+                      md.update((byte) i);
+                      byte[] digest = md.digest();
+                      System.arraycopy(digest, 0, raw, i * 32, 32);
+                  }
+                  raw[0] |= (byte) 0xC0;
+                  raw[127] |= (byte) 0x01;
+                  BigInteger e = BigInteger.valueOf(65537);
+                  BigInteger cand = new BigInteger(1, raw).nextProbablePrime();
+                  while (!cand.subtract(BigInteger.ONE).gcd(e).equals(BigInteger.ONE)) {
+                      cand = cand.add(BigInteger.TWO).nextProbablePrime();
+                  }
+                  return cand;
+              }
+
+              static byte[] derTag(int tag, byte[]... parts) throws IOException {
+                  ByteArrayOutputStream content = new ByteArrayOutputStream();
+                  for (byte[] p : parts) content.write(p);
+                  byte[] body = content.toByteArray();
+                  ByteArrayOutputStream out = new ByteArrayOutputStream();
+                  out.write(tag);
+                  int len = body.length;
+                  if (len < 128) {
+                      out.write(len);
+                  } else if (len < 256) {
+                      out.write(0x81);
+                      out.write(len);
+                  } else {
+                      out.write(0x82);
+                      out.write((len >> 8) & 0xFF);
+                      out.write(len & 0xFF);
+                  }
+                  out.write(body);
+                  return out.toByteArray();
+              }
+
+              static byte[] rdn(byte[] oid, String val) throws IOException {
+                  byte[] str = derTag(0x0C, val.getBytes(StandardCharsets.UTF_8));
+                  return derTag(0x31, derTag(0x30, derTag(0x06, oid), str));
+              }
+
+              public static void main(String[] args) throws Exception {
+                  String keystorePath = args[0];
+                  String storePass = args[1];
+                  String keyAlias = args[2];
+                  String keyPass = args[3];
+                  String seed = args[4];
+
+                  BigInteger e = BigInteger.valueOf(65537);
+                  BigInteger p = derivePrime("PRIME_P", seed);
+                  BigInteger q = derivePrime("PRIME_Q", seed);
+                  if (p.compareTo(q) < 0) {
+                      BigInteger tmp = p; p = q; q = tmp;
+                  }
+                  BigInteger n = p.multiply(q);
+                  BigInteger p1 = p.subtract(BigInteger.ONE);
+                  BigInteger q1 = q.subtract(BigInteger.ONE);
+                  BigInteger phi = p1.multiply(q1);
+                  BigInteger d = e.modInverse(phi);
+                  BigInteger dP = d.mod(p1);
+                  BigInteger dQ = d.mod(q1);
+                  BigInteger qInv = q.modInverse(p);
+
+                  KeyFactory kf = KeyFactory.getInstance("RSA");
+                  PrivateKey priv = kf.generatePrivate(new RSAPrivateCrtKeySpec(n, e, d, p, q, dP, dQ, qInv));
+                  PublicKey pub = kf.generatePublic(new RSAPublicKeySpec(n, e));
+
+                  byte[] algId = derTag(0x30,
+                      derTag(0x06, new byte[]{0x2A, (byte)0x86, 0x48, (byte)0x86, (byte)0xF7, 0x0D, 0x01, 0x01, 0x0B}),
+                      new byte[]{0x05, 0x00}
+                  );
+
+                  byte[] name = derTag(0x30,
+                      rdn(new byte[]{0x55, 0x04, 0x06}, "JP"),
+                      rdn(new byte[]{0x55, 0x04, 0x0A}, "Akari"),
+                      rdn(new byte[]{0x55, 0x04, 0x0B}, "Runami GPS"),
+                      rdn(new byte[]{0x55, 0x04, 0x03}, "Akari Runami")
+                  );
+
+                  byte[] validity = derTag(0x30,
+                      derTag(0x17, "250101000000Z".getBytes(StandardCharsets.US_ASCII)),
+                      derTag(0x17, "491231235959Z".getBytes(StandardCharsets.US_ASCII))
+                  );
+
+                  byte[] version = derTag(0xA0, new byte[]{0x02, 0x01, 0x02});
+                  byte[] serial = new byte[]{0x02, 0x04, 0x01, 0x00, 0x00, 0x01};
+                  byte[] spki = pub.getEncoded();
+                  byte[] tbs = derTag(0x30, version, serial, algId, name, validity, name, spki);
+
+                  Signature sig = Signature.getInstance("SHA256withRSA");
+                  sig.initSign(priv);
+                  sig.update(tbs);
+                  byte[] sigBytes = sig.sign();
+
+                  ByteArrayOutputStream bitStr = new ByteArrayOutputStream();
+                  bitStr.write(0x00);
+                  bitStr.write(sigBytes);
+                  byte[] certDer = derTag(0x30, tbs, algId, derTag(0x03, bitStr.toByteArray()));
+
+                  CertificateFactory cf = CertificateFactory.getInstance("X.509");
+                  X509Certificate cert = (X509Certificate) cf.generateCertificate(new ByteArrayInputStream(certDer));
+
+                  KeyStore ks = KeyStore.getInstance("PKCS12");
+                  ks.load(null, storePass.toCharArray());
+                  ks.setKeyEntry(keyAlias, priv, keyPass.toCharArray(), new Certificate[]{cert});
+                  try (FileOutputStream fos = new FileOutputStream(keystorePath)) {
+                      ks.store(fos, storePass.toCharArray());
+                  }
+              }
+          }
+          EOF
+            java /tmp/GenDeterministicKeystore.java "$KEYSTORE_FILE" "$STORE_PASSWORD" "$KEY_ALIAS" "$KEY_PASSWORD" "$SEED"
+            rm -f /tmp/GenDeterministicKeystore.java
           fi
+
+          echo "Verifying signing certificate fingerprint:"
+          keytool -list -v -keystore "$KEYSTORE_FILE" -storepass "$STORE_PASSWORD" | grep -E "Owner:|Serial number:|SHA1:|SHA256:" || true
 
           cat > keystore.properties <<EOF
           storeFile=release-signing.jks
