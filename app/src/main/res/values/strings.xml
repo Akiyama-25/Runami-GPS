@@ -18,17 +18,18 @@
 
     <!-- Errors -->
     <string name="error_xposed_module_missing">Xposed module is not enabled</string>
-    <string name="error_xposed_module_missing_desc">Enable this module in LSPosed Manager</string>
+    <string name="error_xposed_module_missing_desc">Enable this module in LSPosed / Vector Manager</string>
 
     <!-- About -->
     <string name="about">About</string>
-    <string name="about_info">Brought to you by \n@jqssun (2024-2025) \n@Android1500 (2022-2023) \n\nA GPS setter based on the Xposed framework.</string>
+    <string name="about_info">Maintained by @Akiyama-25\nRepository: https://github.com/Akiyama-25/Runami-GPS\nBased on @jqssun &amp; @Android1500\n\nA GPS setter based on the Xposed framework (API 101).</string>
 
     <!-- Update -->
     <string name="download_manager_description">Downloading update</string>
     <string name="update_button">Update</string>
     <string name="update_available">Update available</string>
     <string name="bs_update_download_failed">Failed</string>
+    <string name="update_channel">Update channel</string>
 
 
     <!-- Dialog -->
@@ -50,7 +51,7 @@
     <string name="enable_joystick">Use joystick</string>
     <string name="enable_joystick_summary">Control your location with a joystick (experimental)</string>
     <string name="advanced_hook">Hook system location</string>
-    <string name="advanced_summary">Hook system for better location setting (reboot required)</string>
+    <string name="advanced_summary">Enable enhanced GNSS satellite status spoofing</string>
     <string name="random_position">Random location</string>
     <string name="random_position_summary">Use a random location around the set location</string>
     <string name="drawer_open">Open</string>

@@ -11,6 +11,7 @@ import android.location.Address
 import android.location.Geocoder
 import android.location.Location
 import android.location.LocationManager
+import android.os.Build
 import android.os.Bundle
 import android.os.Looper
 import android.provider.Settings
@@ -19,6 +20,7 @@ import android.view.inputmethod.EditorInfo
 import android.widget.EditText
 import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.OnBackPressedCallback
 import androidx.activity.SystemBarStyle
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
@@ -28,13 +30,21 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.AppCompatButton
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
-import androidx.core.view.*
+import androidx.core.view.GravityCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import com.google.android.gms.location.*
+import com.google.android.gms.location.FusedLocationProviderClient
+import com.google.android.gms.location.LocationCallback
+import com.google.android.gms.location.LocationRequest
+import com.google.android.gms.location.LocationResult
+import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.Priority
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.elevation.ElevationOverlayProvider
 import com.google.android.material.progressindicator.LinearProgressIndicator
@@ -44,20 +54,28 @@ import io.github.jqssun.gpssetter.R
 import io.github.jqssun.gpssetter.adapter.FavListAdapter
 import io.github.jqssun.gpssetter.databinding.ActivityMapBinding
 import io.github.jqssun.gpssetter.ui.viewmodel.MainViewModel
+import io.github.jqssun.gpssetter.update.UpdateChecker
 import io.github.jqssun.gpssetter.utils.JoystickService
 import io.github.jqssun.gpssetter.utils.NotificationsChannel
 import io.github.jqssun.gpssetter.utils.PrefManager
-import io.github.jqssun.gpssetter.utils.ext.*
-import kotlinx.coroutines.*
+import io.github.jqssun.gpssetter.utils.ext.isNetworkConnected
+import io.github.jqssun.gpssetter.utils.ext.showToast
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
 import java.io.IOException
 import java.util.regex.Matcher
 import java.util.regex.Pattern
+import kotlin.coroutines.resume
 import kotlin.properties.Delegates
 
 @AndroidEntryPoint
-abstract class BaseMapActivity: AppCompatActivity() {
+abstract class BaseMapActivity : AppCompatActivity() {
 
     protected var lat by Delegates.notNull<Double>()
     protected var lon by Delegates.notNull<Double>()
@@ -65,13 +83,25 @@ abstract class BaseMapActivity: AppCompatActivity() {
     protected val binding by lazy { ActivityMapBinding.inflate(layoutInflater) }
     protected lateinit var alertDialog: MaterialAlertDialogBuilder
     protected lateinit var dialog: AlertDialog
-    protected val update by lazy { viewModel.getAvailableUpdate() }
 
     private val notificationsChannel by lazy { NotificationsChannel() }
     private var favListAdapter: FavListAdapter = FavListAdapter()
     private var xposedDialog: AlertDialog? = null
     private lateinit var fusedLocationClient: FusedLocationProviderClient
     private val PERMISSION_ID = 42
+    private val NOTIFICATION_PERMISSION_ID = 43
+    private var lastCheckedChannel: String = PrefManager.updateChannel
+
+    private val drawerBackCallback = object : OnBackPressedCallback(false) {
+        override fun handleOnBackPressed() {
+            if (binding.container.isDrawerOpen(GravityCompat.START)) {
+                binding.container.closeDrawer(GravityCompat.START)
+            } else {
+                isEnabled = false
+                onBackPressedDispatcher.onBackPressed()
+            }
+        }
+    }
 
     private val elevationOverlayProvider by lazy {
         ElevationOverlayProvider(this)
@@ -94,9 +124,9 @@ abstract class BaseMapActivity: AppCompatActivity() {
         enableEdgeToEdge(navigationBarStyle = SystemBarStyle.dark(Color.TRANSPARENT))
 
         WindowCompat.setDecorFitsSystemWindows(window, false)
-        lifecycleScope.launchWhenCreated {
-            setContentView(binding.root)
-        }
+        setContentView(binding.root)
+        onBackPressedDispatcher.addCallback(this, drawerBackCallback)
+
         setSupportActionBar(binding.toolbar)
         initializeMap()
         checkModuleEnabled()
@@ -104,8 +134,25 @@ abstract class BaseMapActivity: AppCompatActivity() {
         setupNavView()
         setupButtons()
         setupDrawer()
-        if (PrefManager.isJoystickEnabled){
+        requestNotificationPermissionIfNeeded()
+        if (PrefManager.isJoystickEnabled) {
             startService(Intent(this, JoystickService::class.java))
+        }
+    }
+
+    private fun requestNotificationPermissionIfNeeded() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ActivityCompat.checkSelfPermission(
+                    this,
+                    Manifest.permission.POST_NOTIFICATIONS
+                ) != PackageManager.PERMISSION_GRANTED
+            ) {
+                ActivityCompat.requestPermissions(
+                    this,
+                    arrayOf(Manifest.permission.POST_NOTIFICATIONS),
+                    NOTIFICATION_PERMISSION_ID
+                )
+            }
         }
     }
 
@@ -120,24 +167,24 @@ abstract class BaseMapActivity: AppCompatActivity() {
         ) {
             override fun onDrawerClosed(view: View) {
                 super.onDrawerClosed(view)
+                drawerBackCallback.isEnabled = false
                 invalidateOptionsMenu()
             }
 
             override fun onDrawerOpened(drawerView: View) {
                 super.onDrawerOpened(drawerView)
+                drawerBackCallback.isEnabled = true
                 invalidateOptionsMenu()
             }
         }
-        binding.container.setDrawerListener(mDrawerToggle)
+        binding.container.addDrawerListener(mDrawerToggle)
     }
 
     private fun setupNavView() {
-
-        binding.mapContainer.map.setOnApplyWindowInsetsListener { _, insets ->
-            val topInset: Int = insets.systemWindowInsetTop
-            val bottomInset: Int = insets.systemWindowInsetBottom
-            binding.navView.setPadding(0,topInset,0,0)
-            insets.consumeSystemWindowInsets()
+        ViewCompat.setOnApplyWindowInsetsListener(binding.mapContainer.map) { _, insets ->
+            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            binding.navView.setPadding(0, systemBars.top, 0, systemBars.bottom)
+            insets
         }
 
         val progress = binding.search.searchProgress
@@ -146,10 +193,10 @@ abstract class BaseMapActivity: AppCompatActivity() {
                 if (isNetworkConnected()) {
                     lifecycleScope.launch(Dispatchers.Main) {
                         val getInput = v.text.toString()
-                        if (getInput.isNotEmpty()){
+                        if (getInput.isNotEmpty()) {
                             getSearchAddress(getInput).let {
                                 it.collect { result ->
-                                    when(result) {
+                                    when (result) {
                                         is SearchProgress.Progress -> {
                                             progress.visibility = View.VISIBLE
                                         }
@@ -177,23 +224,24 @@ abstract class BaseMapActivity: AppCompatActivity() {
         }
 
         binding.navView.setNavigationItemSelectedListener {
-            when(it.itemId){
+            when (it.itemId) {
                 R.id.get_favorite -> {
                     openFavoriteListDialog()
                 }
                 R.id.settings -> {
-                    startActivity(Intent(this,ActivitySettings::class.java))
+                    startActivity(Intent(this, ActivitySettings::class.java))
                 }
                 R.id.about -> {
                     aboutDialog()
                 }
             }
             binding.container.closeDrawer(GravityCompat.START)
+            drawerBackCallback.isEnabled = false
             true
         }
     }
 
-    private fun checkModuleEnabled(){
+    private fun checkModuleEnabled() {
         viewModel.isXposed.observe(this) { isXposed ->
             xposedDialog?.dismiss()
             xposedDialog = null
@@ -201,7 +249,6 @@ abstract class BaseMapActivity: AppCompatActivity() {
                 xposedDialog = MaterialAlertDialogBuilder(this).run {
                     setTitle(R.string.error_xposed_module_missing)
                     setMessage(R.string.error_xposed_module_missing_desc)
-                    // setCancelable(BuildConfig.DEBUG)
                     setCancelable(true)
                     show()
                 }
@@ -212,14 +259,19 @@ abstract class BaseMapActivity: AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         viewModel.updateXposedState()
+        drawerBackCallback.isEnabled = binding.container.isDrawerOpen(GravityCompat.START)
+        if (lastCheckedChannel != PrefManager.updateChannel) {
+            lastCheckedChannel = PrefManager.updateChannel
+            viewModel.refreshUpdateCheck()
+        }
     }
 
-    protected fun aboutDialog(){
+    protected fun aboutDialog() {
         alertDialog = MaterialAlertDialogBuilder(this)
-        layoutInflater.inflate(R.layout.about,null).apply {
-            val  titlele = findViewById<TextView>(R.id.design_about_title)
-            val  version = findViewById<TextView>(R.id.design_about_version)
-            val  info = findViewById<TextView>(R.id.design_about_info)
+        layoutInflater.inflate(R.layout.about, null).apply {
+            val titlele = findViewById<TextView>(R.id.design_about_title)
+            val version = findViewById<TextView>(R.id.design_about_version)
+            val info = findViewById<TextView>(R.id.design_about_info)
             titlele.text = getString(R.string.app_name)
             version.text = BuildConfig.VERSION_NAME
             info.text = getString(R.string.about_info)
@@ -230,8 +282,8 @@ abstract class BaseMapActivity: AppCompatActivity() {
     }
 
     protected fun addFavoriteDialog() {
-        alertDialog =  MaterialAlertDialogBuilder(this).apply {
-            val view = layoutInflater.inflate(R.layout.dialog,null)
+        alertDialog = MaterialAlertDialogBuilder(this).apply {
+            val view = layoutInflater.inflate(R.layout.dialog, null)
             val editText = view.findViewById<EditText>(R.id.search_edittxt)
             setTitle(getString(R.string.add_fav_dialog_title))
             setPositiveButton(getString(R.string.dialog_button_add)) { _, _ ->
@@ -240,7 +292,7 @@ abstract class BaseMapActivity: AppCompatActivity() {
                     showToast(getString(R.string.location_not_select))
                 } else {
                     viewModel.storeFavorite(s, lat, lon)
-                    viewModel.response.observe(getActivityInstance()){
+                    viewModel.response.observe(getActivityInstance()) {
                         if (it == (-1).toLong()) showToast(getString(R.string.cant_save)) else showToast(getString(R.string.save))
                     }
                 }
@@ -254,7 +306,7 @@ abstract class BaseMapActivity: AppCompatActivity() {
         getAllUpdatedFavList()
         alertDialog = MaterialAlertDialogBuilder(this)
         alertDialog.setTitle(getString(R.string.favorites))
-        val view = layoutInflater.inflate(R.layout.fav,null)
+        val view = layoutInflater.inflate(R.layout.fav, null)
         val rcv = view.findViewById<RecyclerView>(R.id.favorites_list)
         rcv.layoutManager = LinearLayoutManager(this)
         rcv.adapter = favListAdapter
@@ -265,7 +317,6 @@ abstract class BaseMapActivity: AppCompatActivity() {
             }
             moveMapToNewLocation(true)
             if (dialog.isShowing) dialog.dismiss()
-
         }
         favListAdapter.onItemDelete = {
             viewModel.deleteFavorite(it)
@@ -273,35 +324,35 @@ abstract class BaseMapActivity: AppCompatActivity() {
         alertDialog.setView(view)
         dialog = alertDialog.create()
         dialog.show()
-
     }
 
-    private fun getAllUpdatedFavList(){
+    private fun getAllUpdatedFavList() {
         lifecycleScope.launch {
-            lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED){
+            lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.doGetUserDetails()
                 viewModel.allFavList.collect {
                     favListAdapter.submitList(it)
                 }
             }
         }
-
     }
 
-    private fun checkUpdates(){
-        lifecycleScope.launchWhenResumed {
-            viewModel.update.collect{
-                if (it!= null){
-                    updateDialog()
+    private fun checkUpdates() {
+        lifecycleScope.launch {
+            lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+                viewModel.update.collect {
+                    if (it != null) {
+                        updateDialog(it)
+                    }
                 }
             }
         }
     }
 
-    private fun updateDialog(){
+    private fun updateDialog(availableUpdate: UpdateChecker.Update) {
         alertDialog = MaterialAlertDialogBuilder(this)
         alertDialog.setTitle(R.string.update_available)
-        alertDialog.setMessage(update?.changelog)
+        alertDialog.setMessage(availableUpdate.changelog)
         alertDialog.setPositiveButton(getString(R.string.update_button)) { _, _ ->
             MaterialAlertDialogBuilder(this).apply {
                 val view = layoutInflater.inflate(R.layout.update_dialog, null)
@@ -333,17 +384,12 @@ abstract class BaseMapActivity: AppCompatActivity() {
                                     Toast.LENGTH_LONG
                                 ).show()
                                 dialog.dismiss()
-
                             }
                             else -> {}
                         }
                     }
                 }
-                update?.let { it ->
-                    viewModel.startDownload(getActivityInstance(), it)
-                } ?: run {
-                    dialog.dismiss()
-                }
+                viewModel.startDownload(getActivityInstance(), availableUpdate)
             }.run {
                 dialog = create()
                 dialog.show()
@@ -353,28 +399,53 @@ abstract class BaseMapActivity: AppCompatActivity() {
         dialog.show()
     }
 
+    @Suppress("DEPRECATION")
+    private suspend fun geocodeAddress(geocoder: Geocoder, address: String): List<Address>? {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            suspendCancellableCoroutine { cont ->
+                geocoder.getFromLocationName(
+                    address,
+                    3,
+                    object : Geocoder.GeocodeListener {
+                        override fun onGeocode(addresses: MutableList<Address>) {
+                            if (cont.isActive) cont.resume(addresses)
+                        }
+
+                        override fun onError(errorMessage: String?) {
+                            if (cont.isActive) cont.resume(emptyList())
+                        }
+                    }
+                )
+            }
+        } else {
+            geocoder.getFromLocationName(address, 3)
+        }
+    }
+
     private suspend fun getSearchAddress(address: String) = callbackFlow {
-        withContext(Dispatchers.IO){
+        withContext(Dispatchers.IO) {
             trySend(SearchProgress.Progress)
             val matcher: Matcher =
                 Pattern.compile("[-+]?\\d{1,3}([.]\\d+)?, *[-+]?\\d{1,3}([.]\\d+)?").matcher(address)
 
-            if (matcher.matches()){
-                delay(3000)
-                trySend(SearchProgress.Complete(matcher.group().split(",")[0].toDouble(),matcher.group().split(",")[1].toDouble()))
-            }else {
-                val geocoder = Geocoder(getActivityInstance())
-                val addressList: List<Address>? = geocoder.getFromLocationName(address,3)
-
+            if (matcher.matches()) {
+                delay(500)
+                trySend(
+                    SearchProgress.Complete(
+                        matcher.group().split(",")[0].toDouble(),
+                        matcher.group().split(",")[1].toDouble()
+                    )
+                )
+            } else {
                 try {
-                    addressList?.let {
-                        if (it.size == 1){
-                           trySend(SearchProgress.Complete(addressList[0].latitude, addressList[0].longitude))
-                        }else {
-                            trySend(SearchProgress.Fail(getString(R.string.address_not_found)))
-                        }
+                    val geocoder = Geocoder(getActivityInstance())
+                    val addressList: List<Address>? = geocodeAddress(geocoder, address)
+                    if (!addressList.isNullOrEmpty()) {
+                        trySend(SearchProgress.Complete(addressList[0].latitude, addressList[0].longitude))
+                    } else {
+                        trySend(SearchProgress.Fail(getString(R.string.address_not_found)))
                     }
-                } catch (io : IOException){
+                } catch (io: IOException) {
                     trySend(SearchProgress.Fail(getString(R.string.no_internet)))
                 }
             }
@@ -382,8 +453,16 @@ abstract class BaseMapActivity: AppCompatActivity() {
         awaitClose { this.cancel() }
     }
 
-    protected fun showStartNotification(address: String){
-        notificationsChannel.showNotification(this){
+    protected fun showStartNotification(address: String) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ActivityCompat.checkSelfPermission(
+                this,
+                Manifest.permission.POST_NOTIFICATIONS
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            return
+        }
+        notificationsChannel.showNotification(this) {
             it.setSmallIcon(R.drawable.ic_stop)
             it.setContentTitle(getString(R.string.location_set))
             it.setContentText(address)
@@ -393,11 +472,10 @@ abstract class BaseMapActivity: AppCompatActivity() {
         }
     }
 
-    protected fun cancelNotification(){
+    protected fun cancelNotification() {
         notificationsChannel.cancelAllNotifications(this)
     }
 
-    // Get current location
     @SuppressLint("MissingPermission")
     protected fun getLastLocation() {
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
@@ -425,15 +503,15 @@ abstract class BaseMapActivity: AppCompatActivity() {
 
     @SuppressLint("MissingPermission")
     private fun requestNewLocationData() {
-        val mLocationRequest = LocationRequest()
-        mLocationRequest.priority = LocationRequest.PRIORITY_HIGH_ACCURACY
-        mLocationRequest.interval = 0
-        mLocationRequest.fastestInterval = 0
-        mLocationRequest.numUpdates = 1
+        val mLocationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 0L)
+            .setMinUpdateIntervalMillis(0L)
+            .setMaxUpdates(1)
+            .build()
 
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
         fusedLocationClient.requestLocationUpdates(
-            mLocationRequest, mLocationCallback,
+            mLocationRequest,
+            mLocationCallback,
             Looper.myLooper()
         )
     }
@@ -478,7 +556,7 @@ abstract class BaseMapActivity: AppCompatActivity() {
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
 
-        if ((grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED)) {
+        if (requestCode == PERMISSION_ID && grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
             getLastLocation()
         }
     }
@@ -486,6 +564,6 @@ abstract class BaseMapActivity: AppCompatActivity() {
 
 sealed class SearchProgress {
     object Progress : SearchProgress()
-    data class Complete(val lat: Double , val lon : Double) : SearchProgress()
+    data class Complete(val lat: Double, val lon: Double) : SearchProgress()
     data class Fail(val error: String?) : SearchProgress()
 }

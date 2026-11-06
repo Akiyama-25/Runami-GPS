@@ -208,6 +208,7 @@ jobs:
           set -euo pipefail
           chmod +x ./gradlew
           BUILT_ON_INSTABOX="false"
+          VERSION_NAME="${RELEASE_TAG}"
 
           if [ "${INSTABOX_READY:-false}" = "true" ] && [ -n "${RESOLVED_MACHINE_ID:-}" ]; then
             echo "Preparing workspace archive for Instabox (${RESOLVED_MACHINE_ID})..."
@@ -215,25 +216,24 @@ jobs:
 
             if npx --yes instabox@latest cp /tmp/project.tar.gz "${RESOLVED_MACHINE_ID}:/tmp/project.tar.gz" 2>/dev/null; then
               echo "Executing Gradle release build on Instabox instance ${RESOLVED_MACHINE_ID}..."
-              REMOTE_CMD='
+              REMOTE_CMD="
                 set -e
                 rm -rf /tmp/runami-release && mkdir -p /tmp/runami-release
                 tar -xzf /tmp/project.tar.gz -C /tmp/runami-release
                 cd /tmp/runami-release
-                for sdk_candidate in "$ANDROID_HOME" "$ANDROID_SDK_ROOT" /data/android-sdk /opt/android-sdk "$HOME/Android/Sdk" /usr/lib/android-sdk; do
-                  if [ -n "$sdk_candidate" ] && [ -d "$sdk_candidate" ]; then
-                    export ANDROID_HOME="$sdk_candidate"
-                    export ANDROID_SDK_ROOT="$sdk_candidate"
+                for sdk_candidate in \"\$ANDROID_HOME\" \"\$ANDROID_SDK_ROOT\" /data/android-sdk /opt/android-sdk \"\$HOME/Android/Sdk\" /usr/lib/android-sdk; do
+                  if [ -n \"\$sdk_candidate\" ] && [ -d \"\$sdk_candidate\" ]; then
+                    export ANDROID_HOME=\"\$sdk_candidate\"
+                    export ANDROID_SDK_ROOT=\"\$sdk_candidate\"
                     break
                   fi
                 done
                 chmod +x ./gradlew
-                ./gradlew assembleRelease --stacktrace
-              '
+                ./gradlew assembleRelease -PversionNameProp=${VERSION_NAME} --stacktrace
+              "
               if npx --yes instabox@latest exec "${RESOLVED_MACHINE_ID}" --timeout 600 -- bash -lc "$REMOTE_CMD"; then
-                mkdir -p app/build/outputs/apk/foss/release app/build/outputs/apk/full/release
-                npx --yes instabox@latest cp "${RESOLVED_MACHINE_ID}:/tmp/runami-release/app/build/outputs/apk/foss/release/app-foss-arm64-v8a-release.apk" app/build/outputs/apk/foss/release/app-foss-arm64-v8a-release.apk && \
-                npx --yes instabox@latest cp "${RESOLVED_MACHINE_ID}:/tmp/runami-release/app/build/outputs/apk/full/release/app-full-arm64-v8a-release.apk" app/build/outputs/apk/full/release/app-full-arm64-v8a-release.apk && \
+                mkdir -p app/build/outputs/apk/release
+                npx --yes instabox@latest cp "${RESOLVED_MACHINE_ID}:/tmp/runami-release/app/build/outputs/apk/release/app-release.apk" app/build/outputs/apk/release/app-release.apk && \
                 BUILT_ON_INSTABOX="true"
               fi
             fi
@@ -241,24 +241,26 @@ jobs:
 
           if [ "$BUILT_ON_INSTABOX" != "true" ]; then
             echo "Completing Gradle assembleRelease build..."
-            ./gradlew assembleRelease --stacktrace
+            ./gradlew assembleRelease -PversionNameProp="${VERSION_NAME}" --stacktrace
           fi
+
+          cp app/build/outputs/apk/release/app-release.apk "app/build/outputs/apk/release/Runami-GPS-${VERSION_NAME}.apk"
 
       - name: Clean Up Signing Keystore
         if: always()
         run: |
           rm -f release-signing.jks keystore.properties
 
-      - name: Publish Signed APKs to GitHub Release
+      - name: Publish Signed APK to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           name: ${{ env.RELEASE_TITLE }}
           tag_name: ${{ env.RELEASE_TAG }}
+          prerelease: false
           generate_release_notes: true
           files: |
-            app/build/outputs/apk/foss/release/app-foss-arm64-v8a-release.apk
-            app/build/outputs/apk/full/release/app-full-arm64-v8a-release.apk
+            app/build/outputs/apk/release/Runami-GPS-${{ env.RELEASE_TAG }}.apk
 
       - name: Release Instabox Activity Lease
         if: always()

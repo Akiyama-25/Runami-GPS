@@ -1,0 +1,13 @@
+id=Akari.Runami.GPS
+name=Runami GPS
+version=release-1
+versionCode=6
+author=Akiyama-25
+description=A GPS setter based on the Xposed framework.
+minApiVersion=101
+targetApiVersion=101
+staticScope=false
+repository=https://github.com/Akiyama-25/Runami-GPS
+sourceUrl=https://github.com/Akiyama-25/Runami-GPS
+supportUrl=https://github.com/Akiyama-25/Runami-GPS/issues
+updateJson=https://raw.githubusercontent.com/Akiyama-25/Runami-GPS/main/update.json

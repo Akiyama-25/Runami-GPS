@@ -29,7 +29,17 @@
             android:icon="@drawable/ic_update"
             android:widgetLayout="@layout/preference_switch_widget"
             android:key="update_disabled"
-            android:defaultValue="false" />
+            android:defaultValue="true" />
+
+        <DropDownPreference
+            android:title="@string/update_channel"
+            android:summary="%s"
+            android:icon="@drawable/ic_update"
+            android:key="update_channel"
+            android:dialogTitle="@string/update_channel"
+            android:entries="@array/update_channel_texts"
+            android:entryValues="@array/update_channel_values"
+            android:defaultValue="release" />
 
         <Preference
             android:title="@string/enable_joystick"

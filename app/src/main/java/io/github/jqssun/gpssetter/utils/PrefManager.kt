@@ -6,14 +6,9 @@ import android.content.SharedPreferences
 import androidx.appcompat.app.AppCompatDelegate
 import io.github.jqssun.gpssetter.BuildConfig
 import io.github.jqssun.gpssetter.gsApp
-import kotlinx.coroutines.DelicateCoroutinesApi
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.launch
-
 
 @SuppressLint("WorldReadableFiles")
-object PrefManager   {
+object PrefManager {
 
     private const val START = "start"
     private const val LATITUDE = "latitude"
@@ -24,8 +19,8 @@ object PrefManager   {
     private const val MAP_TYPE = "map_type"
     private const val DARK_THEME = "dark_theme"
     private const val DISABLE_UPDATE = "update_disabled"
+    private const val UPDATE_CHANNEL = "update_channel"
     private const val ENABLE_JOYSTICK = "joystick_enabled"
-
 
     private val pref: SharedPreferences by lazy {
         try {
@@ -34,49 +29,51 @@ object PrefManager   {
                 prefsFile,
                 Context.MODE_WORLD_READABLE
             )
-        }catch (e:SecurityException){
+        } catch (e: SecurityException) {
             val prefsFile = "${BuildConfig.APPLICATION_ID}_prefs"
             gsApp.getSharedPreferences(
                 prefsFile,
                 Context.MODE_PRIVATE
             )
         }
-
     }
 
-
-    val isStarted : Boolean
+    val isStarted: Boolean
         get() = pref.getBoolean(START, false)
 
-    val getLat : Double
+    val getLat: Double
         get() = pref.getFloat(LATITUDE, 40.7128F).toDouble()
 
-    val getLng : Double
+    val getLng: Double
         get() = pref.getFloat(LONGITUDE, -74.0060F).toDouble()
 
-    var isSystemHooked : Boolean
+    var isSystemHooked: Boolean
         get() = pref.getBoolean(HOOKED_SYSTEM, false)
-        set(value) { pref.edit().putBoolean(HOOKED_SYSTEM,value).apply() }
+        set(value) { pref.edit().putBoolean(HOOKED_SYSTEM, value).apply() }
 
-    var isRandomPosition :Boolean
+    var isRandomPosition: Boolean
         get() = pref.getBoolean(RANDOM_POSITION, false)
         set(value) { pref.edit().putBoolean(RANDOM_POSITION, value).apply() }
 
-    var accuracy : String?
-        get() = pref.getString(ACCURACY_SETTING,"10")
-        set(value) { pref.edit().putString(ACCURACY_SETTING,value).apply()}
+    var accuracy: String?
+        get() = pref.getString(ACCURACY_SETTING, "10")
+        set(value) { pref.edit().putString(ACCURACY_SETTING, value).apply() }
 
-    var mapType : Int
-        get() = pref.getInt(MAP_TYPE,1)
-        set(value) { pref.edit().putInt(MAP_TYPE,value).apply()}
+    var mapType: Int
+        get() = pref.getInt(MAP_TYPE, 1)
+        set(value) { pref.edit().putInt(MAP_TYPE, value).apply() }
 
     var darkTheme: Int
         get() = pref.getInt(DARK_THEME, AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
         set(value) = pref.edit().putInt(DARK_THEME, value).apply()
 
     var isUpdateDisabled: Boolean
-        get() = pref.getBoolean(DISABLE_UPDATE, false)
+        get() = pref.getBoolean(DISABLE_UPDATE, true)
         set(value) = pref.edit().putBoolean(DISABLE_UPDATE, value).apply()
+
+    var updateChannel: String
+        get() = pref.getString(UPDATE_CHANNEL, "release") ?: "release"
+        set(value) = pref.edit().putString(UPDATE_CHANNEL, value).apply()
 
     var isJoystickEnabled: Boolean
         get() = pref.getBoolean(ENABLE_JOYSTICK, false)

@@ -1,6 +1,5 @@
 package io.github.jqssun.gpssetter.ui.viewmodel
 
-
 import android.app.DownloadManager
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -11,6 +10,7 @@ import android.database.Cursor
 import android.net.Uri
 import android.os.Handler
 import android.os.Looper
+import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
@@ -28,7 +28,11 @@ import io.github.jqssun.gpssetter.utils.ext.onIO
 import io.github.jqssun.gpssetter.utils.ext.onMain
 import io.github.jqssun.gpssetter.utils.ext.showToast
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import timber.log.Timber
@@ -42,7 +46,7 @@ class MainViewModel @Inject constructor(
     private val prefManger: PrefManager,
     private val checkUpdates: UpdateChecker,
     private val downloadManager: DownloadManager,
-    @ApplicationContext context: Context
+    @ApplicationContext private val appContext: Context
 ) : ViewModel() {
 
     val getLat: Double
@@ -54,10 +58,10 @@ class MainViewModel @Inject constructor(
     val mapType: Int
         get() = prefManger.mapType
 
-
     private val _allFavList = MutableStateFlow<List<Favorite>>(emptyList())
-    val allFavList : StateFlow<List<Favorite>> =  _allFavList
-    fun doGetUserDetails(){
+    val allFavList: StateFlow<List<Favorite>> = _allFavList
+
+    fun doGetUserDetails() {
         onIO {
             favoriteRepository.getAllFavorites
                 .catch { e ->
@@ -69,23 +73,20 @@ class MainViewModel @Inject constructor(
         }
     }
 
-    fun update(start: Boolean, la: Double, ln: Double)  {
-        prefManger.update(start,la,ln)
+    fun update(start: Boolean, la: Double, ln: Double) {
+        prefManger.update(start, la, ln)
     }
 
     private val _response = MutableLiveData<Long>()
     val response: LiveData<Long> = _response
 
-
     private fun insertNewFavorite(favorite: Favorite) = onIO {
         _response.postValue(favoriteRepository.addNewFavorite(favorite))
-
     }
 
     val isXposed = MutableLiveData<Boolean>(true)
     fun updateXposedState() {
         onMain {
-            // isXposed.value = YukiHookAPI.Status.isModuleActive
             isXposed.value = false
         }
     }
@@ -94,23 +95,27 @@ class MainViewModel @Inject constructor(
         favoriteRepository.deleteFavorite(favorite)
     }
 
-    private fun getFavoriteSingle(i : Int) : Favorite {
+    private fun getFavoriteSingle(i: Int): Favorite? {
         return favoriteRepository.getSingleFavorite(i.toLong())
     }
 
+    private val _update = MutableStateFlow<UpdateChecker.Update?>(null)
+    val update = _update.asStateFlow()
 
-    private val _update = MutableStateFlow<UpdateChecker.Update?>(null).apply {
+    init {
+        refreshUpdateCheck()
+    }
+
+    fun refreshUpdateCheck() {
         viewModelScope.launch {
-            withContext(Dispatchers.IO){
-                checkUpdates.clearCachedDownloads(context)
+            withContext(Dispatchers.IO) {
+                checkUpdates.clearCachedDownloads(appContext)
             }
             checkUpdates.getLatestRelease().collect {
-                emit(it)
+                _update.emit(it)
             }
         }
     }
-
-     val update = _update.asStateFlow()
 
     fun getAvailableUpdate(): UpdateChecker.Update? {
         return _update.value
@@ -122,21 +127,18 @@ class MainViewModel @Inject constructor(
         }
     }
 
-
     private var requestId: Long? = null
     private var _downloadState = MutableStateFlow<State>(State.Idle)
     private var downloadFile: File? = null
     val downloadState = _downloadState.asStateFlow()
 
-
-    // Got idea from https://github.com/KieronQuinn/DarQ for Check Update
     fun startDownload(context: Context, update: UpdateChecker.Update) {
-        if(_downloadState.value is State.Idle) {
+        if (_downloadState.value is State.Idle) {
             downloadUpdate(context, update.assetUrl, update.assetName)
         }
     }
 
-    private val downloadStateReceiver = object: BroadcastReceiver() {
+    private val downloadStateReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent?) {
             viewModelScope.launch {
                 var success = false
@@ -151,7 +153,11 @@ class MainViewModel @Inject constructor(
                     }
                 }
                 if (success && downloadFile != null) {
-                    val outputUri = FileProvider.getUriForFile(context, BuildConfig.APPLICATION_ID + ".provider", downloadFile!!)
+                    val outputUri = FileProvider.getUriForFile(
+                        context,
+                        BuildConfig.APPLICATION_ID + ".provider",
+                        downloadFile!!
+                    )
                     _downloadState.emit(State.Done(outputUri))
                 } else {
                     _downloadState.emit(State.Failed)
@@ -160,7 +166,7 @@ class MainViewModel @Inject constructor(
         }
     }
 
-    private val downloadObserver = object: ContentObserver(Handler(Looper.getMainLooper())) {
+    private val downloadObserver = object : ContentObserver(Handler(Looper.getMainLooper())) {
         override fun onChange(selfChange: Boolean, uri: Uri?) {
             super.onChange(selfChange, uri)
             viewModelScope.launch {
@@ -187,8 +193,17 @@ class MainViewModel @Inject constructor(
             mkdirs()
         }
         downloadFile = File(downloadFolder, fileName)
-        context.registerReceiver(downloadStateReceiver, IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE))
-        context.contentResolver.registerContentObserver(Uri.parse("content://downloads/my_downloads"), true, downloadObserver)
+        ContextCompat.registerReceiver(
+            context,
+            downloadStateReceiver,
+            IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE),
+            ContextCompat.RECEIVER_EXPORTED
+        )
+        context.contentResolver.registerContentObserver(
+            Uri.parse("content://downloads/my_downloads"),
+            true,
+            downloadObserver
+        )
         requestId = DownloadManager.Request(Uri.parse(url)).apply {
             setDescription(context.getString(R.string.download_manager_description))
             setTitle(context.getString(R.string.app_name))
@@ -198,7 +213,7 @@ class MainViewModel @Inject constructor(
         }
     }
 
-    fun openPackageInstaller(context: Context, uri: Uri){
+    fun openPackageInstaller(context: Context, uri: Uri) {
         runCatching {
             Intent(Intent.ACTION_VIEW, uri).apply {
                 putExtra(Intent.EXTRA_NOT_UNKNOWN_SOURCE, true)
@@ -212,7 +227,6 @@ class MainViewModel @Inject constructor(
             it.printStackTrace()
             context.showToast(context.getString(R.string.app_update_failed))
         }
-
     }
 
     fun cancelDownload(context: Context) {
@@ -220,42 +234,34 @@ class MainViewModel @Inject constructor(
             requestId?.let {
                 downloadManager.remove(it)
             }
-            context.unregisterReceiver(downloadStateReceiver)
-            context.contentResolver.unregisterContentObserver(downloadObserver)
+            runCatching { context.unregisterReceiver(downloadStateReceiver) }
+            runCatching { context.contentResolver.unregisterContentObserver(downloadObserver) }
             _downloadState.emit(State.Idle)
         }
     }
 
     sealed class State {
-        object Idle: State()
-        data class Downloading(val progress: Int): State()
-        data class Done(val fileUri: Uri): State()
-        object Failed: State()
+        object Idle : State()
+        data class Downloading(val progress: Int) : State()
+        data class Done(val fileUri: Uri) : State()
+        object Failed : State()
     }
 
-
-
-     fun storeFavorite(
+    fun storeFavorite(
         address: String,
         lat: Double,
         lon: Double
     ) = onIO {
-
-            val slot: Int
-            var i = 0
-            while (true) {
-                if(getFavoriteSingle(i) == null) {
-                    slot = i
-                    break
-                } else {
-                    i++
-                }
+        val slot: Int
+        var i = 0
+        while (true) {
+            if (getFavoriteSingle(i) == null) {
+                slot = i
+                break
+            } else {
+                i++
+            }
         }
-         insertNewFavorite(Favorite(id = slot.toLong(), address = address, lat = lat, lng = lon))
+        insertNewFavorite(Favorite(id = slot.toLong(), address = address, lat = lat, lng = lon))
     }
-
-
-
-
-
 }

@@ -1,6 +1,5 @@
 package io.github.jqssun.gpssetter.ui
 
-
 import android.Manifest
 import android.annotation.SuppressLint
 import android.content.pm.PackageManager
@@ -23,7 +22,7 @@ import kotlinx.coroutines.launch
 
 typealias CustomLatLng = LatLng
 
-class MapActivity: BaseMapActivity(), OnMapReadyCallback, GoogleMap.OnMapClickListener {
+class MapActivity : BaseMapActivity(), OnMapReadyCallback, GoogleMap.OnMapClickListener {
 
     private lateinit var mMap: GoogleMap
     private var mLatLng: LatLng? = null
@@ -32,13 +31,16 @@ class MapActivity: BaseMapActivity(), OnMapReadyCallback, GoogleMap.OnMapClickLi
     override fun hasMarker(): Boolean {
         return mMarker?.isVisible == true
     }
+
     private fun updateMarker(it: LatLng) {
         mMarker?.position = it
         mMarker?.isVisible = true
     }
+
     private fun removeMarker() {
         mMarker?.isVisible = false
     }
+
     private fun syncLocationIfStarted() {
         if (viewModel.isStarted) {
             viewModel.update(true, lat, lon)
@@ -49,25 +51,29 @@ class MapActivity: BaseMapActivity(), OnMapReadyCallback, GoogleMap.OnMapClickLi
             }
         }
     }
+
     override fun initializeMap() {
         val mapFragment = SupportMapFragment.newInstance()
         supportFragmentManager.beginTransaction()
             .replace(R.id.map, mapFragment)
             .commit()
-        mapFragment?.getMapAsync(this)
+        mapFragment.getMapAsync(this)
     }
+
     override fun moveMapToNewLocation(moveNewLocation: Boolean) {
         if (moveNewLocation) {
             mLatLng = LatLng(lat, lon)
             mLatLng?.let { latLng ->
-                mMap.animateCamera(CameraUpdateFactory.newCameraPosition(
+                mMap.animateCamera(
+                    CameraUpdateFactory.newCameraPosition(
                         CameraPosition.Builder()
-                        .target(latLng)
-                        .zoom(12.0f)
-                        .bearing(0f)
-                        .tilt(0f)
-                        .build()
-                ))
+                            .target(latLng)
+                            .zoom(12.0f)
+                            .bearing(0f)
+                            .tilt(0f)
+                            .build()
+                    )
+                )
                 mMarker?.apply {
                     position = latLng
                     isVisible = true
@@ -77,28 +83,33 @@ class MapActivity: BaseMapActivity(), OnMapReadyCallback, GoogleMap.OnMapClickLi
             }
         }
     }
+
     override fun onMapReady(googleMap: GoogleMap) {
         mMap = googleMap
-        with(mMap){
-
-            
-            // gms custom ui
-            if (ActivityCompat.checkSelfPermission(this@MapActivity, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) { 
-                setMyLocationEnabled(true); 
+        with(mMap) {
+            if (ActivityCompat.checkSelfPermission(
+                    this@MapActivity,
+                    Manifest.permission.ACCESS_FINE_LOCATION
+                ) == PackageManager.PERMISSION_GRANTED
+            ) {
+                isMyLocationEnabled = true
             } else {
-                ActivityCompat.requestPermissions(this@MapActivity, arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), 99);
+                ActivityCompat.requestPermissions(
+                    this@MapActivity,
+                    arrayOf(Manifest.permission.ACCESS_FINE_LOCATION),
+                    99
+                )
             }
-            setTrafficEnabled(true)
+            isTrafficEnabled = true
             uiSettings.isMyLocationButtonEnabled = false
             uiSettings.isZoomControlsEnabled = false
             uiSettings.isCompassEnabled = false
-            setPadding(0,80,0,0)
+            setPadding(0, 80, 0, 0)
             mapType = viewModel.mapType
-
 
             val zoom = 12.0f
             lat = viewModel.getLat
-            lon  = viewModel.getLng
+            lon = viewModel.getLng
             mLatLng = LatLng(lat, lon)
             mLatLng?.let {
                 mMarker = addMarker(
@@ -112,7 +123,7 @@ class MapActivity: BaseMapActivity(), OnMapReadyCallback, GoogleMap.OnMapClickLi
             }
 
             setOnMapClickListener(this@MapActivity)
-            if (viewModel.isStarted){
+            if (viewModel.isStarted) {
                 mMarker?.let {
                     it.isVisible = true
                     it.showInfoWindow()
@@ -120,6 +131,7 @@ class MapActivity: BaseMapActivity(), OnMapReadyCallback, GoogleMap.OnMapClickLi
             }
         }
     }
+
     override fun onMapClick(latLng: LatLng) {
         mLatLng = latLng
         mMarker?.let {
@@ -136,7 +148,7 @@ class MapActivity: BaseMapActivity(), OnMapReadyCallback, GoogleMap.OnMapClickLi
     }
 
     @SuppressLint("MissingPermission")
-    override fun setupButtons(){
+    override fun setupButtons() {
         binding.addfavorite.setOnClickListener {
             addFavoriteDialog()
         }
@@ -151,14 +163,14 @@ class MapActivity: BaseMapActivity(), OnMapReadyCallback, GoogleMap.OnMapClickLi
 
         binding.startButton.setOnClickListener {
             viewModel.update(true, lat, lon)
-            mLatLng.let {
-                updateMarker(it!!)
+            mLatLng?.let {
+                updateMarker(it)
             }
             binding.startButton.visibility = View.GONE
             binding.stopButton.visibility = View.VISIBLE
             lifecycleScope.launch {
                 mLatLng?.getAddress(getActivityInstance())?.let { address ->
-                    address.collect{ value ->
+                    address.collect { value ->
                         showStartNotification(value)
                     }
                 }
@@ -166,8 +178,8 @@ class MapActivity: BaseMapActivity(), OnMapReadyCallback, GoogleMap.OnMapClickLi
             showToast(getString(R.string.location_set))
         }
         binding.stopButton.setOnClickListener {
-            mLatLng.let {
-                viewModel.update(false, it!!.latitude, it.longitude)
+            mLatLng?.let {
+                viewModel.update(false, it.latitude, it.longitude)
             }
             removeMarker()
             binding.stopButton.visibility = View.GONE
