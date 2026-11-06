@@ -55,6 +55,7 @@ import io.github.jqssun.gpssetter.adapter.FavListAdapter
 import io.github.jqssun.gpssetter.databinding.ActivityMapBinding
 import io.github.jqssun.gpssetter.ui.viewmodel.MainViewModel
 import io.github.jqssun.gpssetter.update.UpdateChecker
+import io.github.jqssun.gpssetter.utils.AppLogger
 import io.github.jqssun.gpssetter.utils.JoystickService
 import io.github.jqssun.gpssetter.utils.NotificationsChannel
 import io.github.jqssun.gpssetter.utils.PrefManager
@@ -69,6 +70,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import java.io.IOException
+import java.util.Locale
 import java.util.regex.Matcher
 import java.util.regex.Pattern
 import kotlin.coroutines.resume
@@ -204,10 +206,24 @@ abstract class BaseMapActivity : AppCompatActivity() {
                                             progress.visibility = View.GONE
                                             lat = result.lat
                                             lon = result.lon
+                                            AppLogger.logApp(
+                                                action = "MapSearch.onComplete (地址/坐标搜索)",
+                                                details = String.format(
+                                                    Locale.US,
+                                                    "关键词=\"%s\" -> (%.6f, %.6f)",
+                                                    getInput,
+                                                    lat,
+                                                    lon
+                                                )
+                                            )
                                             moveMapToNewLocation(true)
                                         }
                                         is SearchProgress.Fail -> {
                                             progress.visibility = View.GONE
+                                            AppLogger.logApp(
+                                                action = "MapSearch.onFail (搜索失败)",
+                                                details = "关键词=\"$getInput\", 原因=${result.error}"
+                                            )
                                             showToast(result.error!!)
                                         }
                                     }
@@ -228,6 +244,9 @@ abstract class BaseMapActivity : AppCompatActivity() {
                 R.id.get_favorite -> {
                     openFavoriteListDialog()
                 }
+                R.id.logs -> {
+                    startActivity(Intent(this, LogActivity::class.java))
+                }
                 R.id.settings -> {
                     startActivity(Intent(this, ActivitySettings::class.java))
                 }
@@ -245,6 +264,10 @@ abstract class BaseMapActivity : AppCompatActivity() {
         viewModel.isXposed.observe(this) { isXposed ->
             xposedDialog?.dismiss()
             xposedDialog = null
+            AppLogger.logApp(
+                action = "XposedStateCheck (模块激活状态检查)",
+                details = if (isXposed) "Xposed 模块已激活 (API 101)" else "Xposed 模块未激活，请在 LSPosed / Vector 中启用"
+            )
             if (!isXposed) {
                 xposedDialog = MaterialAlertDialogBuilder(this).run {
                     setTitle(R.string.error_xposed_module_missing)
@@ -259,6 +282,7 @@ abstract class BaseMapActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         viewModel.updateXposedState()
+        AppLogger.requestFlushFromHookedApps(this)
         drawerBackCallback.isEnabled = binding.container.isDrawerOpen(GravityCompat.START)
         if (lastCheckedChannel != PrefManager.updateChannel) {
             lastCheckedChannel = PrefManager.updateChannel
@@ -314,6 +338,16 @@ abstract class BaseMapActivity : AppCompatActivity() {
             it.let {
                 lat = it.lat!!
                 lon = it.lng!!
+                AppLogger.logApp(
+                    action = "Favorite.onItemClick (选择收藏位置)",
+                    details = String.format(
+                        Locale.US,
+                        "名称=\"%s\", 坐标=(%.6f, %.6f)",
+                        it.address,
+                        lat,
+                        lon
+                    )
+                )
             }
             moveMapToNewLocation(true)
             if (dialog.isShowing) dialog.dismiss()
@@ -488,6 +522,10 @@ abstract class BaseMapActivity : AppCompatActivity() {
                     } else {
                         lat = location.latitude
                         lon = location.longitude
+                        AppLogger.logApp(
+                            action = "BaseMapActivity.getLastLocation (获取本机当前位置)",
+                            details = String.format(Locale.US, "坐标=(%.6f, %.6f)", lat, lon)
+                        )
                         moveMapToNewLocation(true)
                     }
                 }

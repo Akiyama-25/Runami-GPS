@@ -6,6 +6,7 @@
     <string name="search">Search</string>
     <string name="address">United States</string>
     <string name="favorites">Favorites</string>
+    <string name="logs">Logs</string>
     <string name="address_not_found">Address not found</string>
     <string name="cant_save">Can\'t save</string>
     <string name="location_set">Location set</string>
@@ -15,6 +16,22 @@
     <string name="no_internet">No Internet</string>
     <string name="getlocation_desc">Get current location</string>
     <string name="addfavorite_desc">Add favorite</string>
+
+    <!-- Logs -->
+    <string name="title_activity_logs">运行与定位请求日志</string>
+    <string name="log_tab_all">全部记录</string>
+    <string name="log_tab_app">自身日志</string>
+    <string name="log_tab_location">定位请求</string>
+    <string name="log_search_hint">搜索应用包名、接口或坐标…</string>
+    <string name="log_empty">暂无日志记录</string>
+    <string name="log_clear">清空日志</string>
+    <string name="log_clear_confirm">确定要清空所有自身日志与定位请求记录吗？</string>
+    <string name="log_export">分享/导出日志</string>
+    <string name="log_refresh">同步进程日志</string>
+    <string name="log_copied">已复制该条日志到剪贴板</string>
+    <string name="log_badge_app">自身日志</string>
+    <string name="log_badge_spoofed">定位拦截 · 已伪装</string>
+    <string name="log_badge_passthrough">定位请求 · 透传</string>
 
     <!-- Errors -->
     <string name="error_xposed_module_missing">Xposed module is not enabled</string>

@@ -14,6 +14,7 @@ import android.view.ViewGroup
 import android.view.WindowManager
 import io.github.controlwear.virtual.joystick.android.JoystickView
 import io.github.jqssun.gpssetter.R
+import java.util.Locale
 import kotlin.math.cos
 import kotlin.math.sin
 
@@ -30,11 +31,16 @@ class JoystickService : Service(), View.OnTouchListener, View.OnClickListener {
     private var mJoystickLayoutParams: WindowManager.LayoutParams? = null
     private var lat: Double = PrefManager.getLat
     private var lon: Double = PrefManager.getLng
+    private var lastJoystickLogMs: Long = 0L
 
     @SuppressLint("ClickableViewAccessibility", "RtlHardcoded")
     override fun onCreate() {
         super.onCreate()
         isRunning = true
+        AppLogger.logApp(
+            action = "JoystickService.onCreate (摇杆悬浮窗启动)",
+            details = String.format(Locale.US, "初始坐标=(%.6f, %.6f)", lat, lon)
+        )
         wm = getSystemService(WINDOW_SERVICE) as WindowManager
         val mInflater: LayoutInflater = getSystemService(Context.LAYOUT_INFLATER_SERVICE) as LayoutInflater
         mJoystickContainerView = mInflater.inflate(R.layout.joystick, null as ViewGroup?) as View
@@ -44,7 +50,7 @@ class JoystickService : Service(), View.OnTouchListener, View.OnClickListener {
                 try {
                     lat = PrefManager.getLat
                     lon = PrefManager.getLng
-                    updateLocation(lat, lon)
+                    updateLocation(lat, lon, forceLog = true)
                 } catch (e: Exception) {
                     e.printStackTrace()
                 }
@@ -58,7 +64,7 @@ class JoystickService : Service(), View.OnTouchListener, View.OnClickListener {
                 val factorY: Double = sin(radians) / 100000.0 * (strength / 30)
                 lon = PrefManager.getLng + factorX
                 lat = PrefManager.getLat + factorY
-                updateLocation(lat, lon)
+                updateLocation(lat, lon, forceLog = false)
             } catch (e: Exception) {
                 e.printStackTrace()
             }
@@ -90,6 +96,10 @@ class JoystickService : Service(), View.OnTouchListener, View.OnClickListener {
 
     override fun onDestroy() {
         isRunning = false
+        AppLogger.logApp(
+            action = "JoystickService.onDestroy (摇杆悬浮窗关闭)",
+            details = String.format(Locale.US, "结束坐标=(%.6f, %.6f)", lat, lon)
+        )
         super.onDestroy()
         if (this.mJoystickContainerView != null) {
             this.wm?.removeView(mJoystickContainerView)
@@ -97,7 +107,15 @@ class JoystickService : Service(), View.OnTouchListener, View.OnClickListener {
         }
     }
 
-    private fun updateLocation(lat: Double, lon: Double) {
+    private fun updateLocation(lat: Double, lon: Double, forceLog: Boolean) {
         PrefManager.update(start = PrefManager.isStarted, la = lat, ln = lon)
+        val now = System.currentTimeMillis()
+        if (forceLog || now - lastJoystickLogMs >= 1500L) {
+            lastJoystickLogMs = now
+            AppLogger.logApp(
+                action = "JoystickService.updateLocation (摇杆移动位置)",
+                details = String.format(Locale.US, "更新伪装坐标=(%.6f, %.6f)", lat, lon)
+            )
+        }
     }
 }

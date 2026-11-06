@@ -21,13 +21,17 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import io.github.jqssun.gpssetter.BuildConfig
 import io.github.jqssun.gpssetter.R
 import io.github.jqssun.gpssetter.repository.FavoriteRepository
+import io.github.jqssun.gpssetter.repository.LogRepository
 import io.github.jqssun.gpssetter.room.Favorite
+import io.github.jqssun.gpssetter.room.LogEntry
 import io.github.jqssun.gpssetter.update.UpdateChecker
+import io.github.jqssun.gpssetter.utils.AppLogger
 import io.github.jqssun.gpssetter.utils.PrefManager
 import io.github.jqssun.gpssetter.utils.ext.onIO
 import io.github.jqssun.gpssetter.utils.ext.onMain
 import io.github.jqssun.gpssetter.utils.ext.showToast
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -37,12 +41,14 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import timber.log.Timber
 import java.io.File
+import java.util.Locale
 import javax.inject.Inject
 import kotlin.math.roundToInt
 
 @HiltViewModel
 class MainViewModel @Inject constructor(
     private val favoriteRepository: FavoriteRepository,
+    private val logRepository: LogRepository,
     private val prefManger: PrefManager,
     private val checkUpdates: UpdateChecker,
     private val downloadManager: DownloadManager,
@@ -58,6 +64,13 @@ class MainViewModel @Inject constructor(
     val mapType: Int
         get() = prefManger.mapType
 
+    val allLogs: Flow<List<LogEntry>>
+        get() = logRepository.allLogs
+
+    fun clearAllLogs() = onIO {
+        logRepository.clearAllLogs()
+    }
+
     private val _allFavList = MutableStateFlow<List<Favorite>>(emptyList())
     val allFavList: StateFlow<List<Favorite>> = _allFavList
 
@@ -65,7 +78,7 @@ class MainViewModel @Inject constructor(
         onIO {
             favoriteRepository.getAllFavorites
                 .catch { e ->
-                    Timber.tag("Error in getting all save favorite").d(e.message.toString())
+                    Timber.tag("Favorite").d(e.message.toString())
                 }
                 .collectLatest {
                     _allFavList.emit(it)
@@ -75,13 +88,24 @@ class MainViewModel @Inject constructor(
 
     fun update(start: Boolean, la: Double, ln: Double) {
         prefManger.update(start, la, ln)
+        val coordStr = String.format(Locale.US, "(%.6f, %.6f)", la, ln)
+        AppLogger.logApp(
+            action = if (start) "PrefManager.update (开启/更新伪装位置)" else "PrefManager.update (关闭定位伪装)",
+            details = "状态=${if (start) "已开启" else "已关闭"}, 坐标=$coordStr, 精度=${prefManger.accuracy}m, 随机偏移=${prefManger.isRandomPosition}, 系统GNSS增强=${prefManger.isSystemHooked}",
+            isSpoofed = start
+        )
     }
 
     private val _response = MutableLiveData<Long>()
     val response: LiveData<Long> = _response
 
     private fun insertNewFavorite(favorite: Favorite) = onIO {
-        _response.postValue(favoriteRepository.addNewFavorite(favorite))
+        val id = favoriteRepository.addNewFavorite(favorite)
+        _response.postValue(id)
+        AppLogger.logApp(
+            action = "FavoriteRepository.addNewFavorite (新增收藏)",
+            details = "名称=${favorite.address}, 坐标=(${favorite.lat}, ${favorite.lng})"
+        )
     }
 
     val isXposed = MutableLiveData<Boolean>(true)
@@ -93,6 +117,10 @@ class MainViewModel @Inject constructor(
 
     fun deleteFavorite(favorite: Favorite) = onIO {
         favoriteRepository.deleteFavorite(favorite)
+        AppLogger.logApp(
+            action = "FavoriteRepository.deleteFavorite (删除收藏)",
+            details = "名称=${favorite.address}, 坐标=(${favorite.lat}, ${favorite.lng})"
+        )
     }
 
     private fun getFavoriteSingle(i: Int): Favorite? {
@@ -113,6 +141,12 @@ class MainViewModel @Inject constructor(
             }
             checkUpdates.getLatestRelease().collect {
                 _update.emit(it)
+                if (it != null) {
+                    AppLogger.logApp(
+                        action = "UpdateChecker.getLatestRelease (检测到新版本)",
+                        details = "通道=${prefManger.updateChannel}, 最新版本=${it.name}"
+                    )
+                }
             }
         }
     }

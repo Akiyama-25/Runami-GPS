@@ -23,6 +23,7 @@ import androidx.preference.PreferenceDataStore
 import androidx.preference.PreferenceFragmentCompat
 import io.github.jqssun.gpssetter.R
 import io.github.jqssun.gpssetter.databinding.ActivitySettingsBinding
+import io.github.jqssun.gpssetter.utils.AppLogger
 import io.github.jqssun.gpssetter.utils.JoystickService
 import io.github.jqssun.gpssetter.utils.PrefManager
 import io.github.jqssun.gpssetter.utils.ext.showToast
@@ -45,13 +46,18 @@ class ActivitySettings : AppCompatActivity() {
         }
 
         override fun putBoolean(key: String?, value: Boolean) {
-            return when (key) {
+            when (key) {
                 "system_hooked" -> PrefManager.isSystemHooked = value
                 "random_position" -> PrefManager.isRandomPosition = value
                 "update_disabled" -> PrefManager.isUpdateDisabled = value
                 "joystick_enabled" -> PrefManager.isJoystickEnabled = value
                 else -> throw IllegalArgumentException("Invalid key $key")
             }
+            PrefManager.makeWorldReadable()
+            AppLogger.logApp(
+                action = "Settings.putBoolean ($key)",
+                details = "配置项 $key 已更新为 $value"
+            )
         }
 
         override fun getString(key: String?, defValue: String?): String? {
@@ -65,13 +71,18 @@ class ActivitySettings : AppCompatActivity() {
         }
 
         override fun putString(key: String?, value: String?) {
-            return when (key) {
+            when (key) {
                 "accuracy_level" -> PrefManager.accuracy = value
                 "map_type" -> PrefManager.mapType = value!!.toInt()
                 "dark_theme" -> PrefManager.darkTheme = value!!.toInt()
                 "update_channel" -> PrefManager.updateChannel = value ?: "release"
                 else -> throw IllegalArgumentException("Invalid key $key")
             }
+            PrefManager.makeWorldReadable()
+            AppLogger.logApp(
+                action = "Settings.putString ($key)",
+                details = "配置项 $key 已更新为 $value"
+            )
         }
     }
 

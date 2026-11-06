@@ -1,7 +1,6 @@
 package io.github.jqssun.gpssetter.xposed
 
 import android.annotation.SuppressLint
-import android.location.GnssStatus
 import android.location.Location
 import android.location.LocationListener
 import android.location.LocationManager
@@ -18,6 +17,7 @@ import io.github.jqssun.gpssetter.BuildConfig
 import org.lsposed.hiddenapibypass.HiddenApiBypass
 import timber.log.Timber
 import java.util.Collections
+import java.util.Locale
 import java.util.Random
 import java.util.WeakHashMap
 import java.util.concurrent.ConcurrentHashMap
@@ -54,6 +54,9 @@ object LocationHook {
     @Volatile
     private var mLastUpdated: Long = 0L
 
+    @Volatile
+    private var currentHookedPkg: String = ""
+
     private val ignorePkg = setOf(
         "android",
         "com.android.location.fused",
@@ -70,6 +73,10 @@ object LocationHook {
 
     private val mainHandler by lazy { Handler(Looper.getMainLooper()) }
     private var isLiveTickerScheduled = false
+
+    private fun formatCoord(lat: Double = newlat, lng: Double = newlng): String {
+        return String.format(Locale.US, "(%.6f, %.6f) acc=%.1fm", lat, lng, accuracy)
+    }
 
     private val liveUpdateRunnable = object : Runnable {
         override fun run() {
@@ -111,6 +118,15 @@ object LocationHook {
             runCatching {
                 val loc = createSpoofedLocation(null, provider)
                 listener.onLocationChanged(loc)
+                if (currentHookedPkg.isNotEmpty()) {
+                    HookLogReporter.recordLocationRequest(
+                        packageName = currentHookedPkg,
+                        action = "LocationListener.onLocationChanged (实时推送)",
+                        details = "provider=$provider -> 伪装位置 ${formatCoord()}",
+                        isSpoofed = true,
+                        throttleMs = 3000L
+                    )
+                }
             }
         }
 
@@ -131,6 +147,15 @@ object LocationHook {
                         listOf(loc)
                     )
                     XposedHelpers.callMethod(callback, "onLocationResult", locationResult)
+                    if (currentHookedPkg.isNotEmpty()) {
+                        HookLogReporter.recordLocationRequest(
+                            packageName = currentHookedPkg,
+                            action = "FusedLocationCallback.onLocationResult (实时推送)",
+                            details = "GMS Fused -> 伪装位置 ${formatCoord()}",
+                            isSpoofed = true,
+                            throttleMs = 3000L
+                        )
+                    }
                 }
             }
         }
@@ -282,6 +307,20 @@ object LocationHook {
             return
         }
 
+        currentHookedPkg = pkgName
+        val active = isSpoofingActive(pkgName)
+        HookLogReporter.recordLocationRequest(
+            packageName = pkgName,
+            action = "HookEntry.initHooks (注入目标进程)",
+            details = if (active) {
+                "已挂载定位拦截钩子 · 当前伪装开启 ${formatCoord()}"
+            } else {
+                "已挂载定位拦截钩子 · 当前伪装未开启（透传真实位置）"
+            },
+            isSpoofed = active,
+            throttleMs = 0L
+        )
+
         hookLocationClass(lpparam, pkgName)
         hookLocationResultClass(lpparam, pkgName)
         hookLocationManagerClass(lpparam, pkgName)
@@ -304,6 +343,13 @@ object LocationHook {
                             override fun beforeHookedMethod(param: MethodHookParam) {
                                 if (isSpoofingActive(pkgName)) {
                                     param.result = newlat
+                                    HookLogReporter.recordLocationRequest(
+                                        packageName = pkgName,
+                                        action = "Location.getLatitude/getLongitude",
+                                        details = "直接读取坐标 -> 返回伪装位置 ${formatCoord()}",
+                                        isSpoofed = true,
+                                        throttleMs = 4000L
+                                    )
                                 }
                             }
                         }
@@ -352,6 +398,13 @@ object LocationHook {
                             override fun beforeHookedMethod(param: MethodHookParam) {
                                 if (isSpoofingActive(pkgName)) {
                                     param.result = false
+                                    HookLogReporter.recordLocationRequest(
+                                        packageName = pkgName,
+                                        action = "Location.${method.name} (模拟位置检测)",
+                                        details = "拦截虚拟定位检测 -> 强制返回 false",
+                                        isSpoofed = true,
+                                        throttleMs = 5000L
+                                    )
                                 }
                             }
                         }
@@ -389,7 +442,8 @@ object LocationHook {
                         method,
                         object : XC_MethodHook() {
                             override fun afterHookedMethod(param: MethodHookParam) {
-                                if (isSpoofingActive(pkgName)) {
+                                val active = isSpoofingActive(pkgName)
+                                if (active) {
                                     val loc = param.result as? Location
                                     if (loc != null) {
                                         amendLocationInPlace(loc)
@@ -397,6 +451,13 @@ object LocationHook {
                                         param.result = createSpoofedLocation()
                                     }
                                 }
+                                HookLogReporter.recordLocationRequest(
+                                    packageName = pkgName,
+                                    action = "LocationResult.${method.name}",
+                                    details = if (active) "返回伪装位置 ${formatCoord()}" else "未开启伪装，透传真实位置",
+                                    isSpoofed = active,
+                                    throttleMs = 2000L
+                                )
                             }
                         }
                     )
@@ -406,7 +467,8 @@ object LocationHook {
                         method,
                         object : XC_MethodHook() {
                             override fun afterHookedMethod(param: MethodHookParam) {
-                                if (isSpoofingActive(pkgName)) {
+                                val active = isSpoofingActive(pkgName)
+                                if (active) {
                                     @Suppress("UNCHECKED_CAST")
                                     val list = param.result as? List<Location>
                                     if (!list.isNullOrEmpty()) {
@@ -415,6 +477,13 @@ object LocationHook {
                                         param.result = listOf(createSpoofedLocation())
                                     }
                                 }
+                                HookLogReporter.recordLocationRequest(
+                                    packageName = pkgName,
+                                    action = "LocationResult.asList",
+                                    details = if (active) "改写位置列表 -> ${formatCoord()}" else "未开启伪装，透传真实位置列表",
+                                    isSpoofed = active,
+                                    throttleMs = 2000L
+                                )
                             }
                         }
                     )
@@ -436,12 +505,24 @@ object LocationHook {
                         method,
                         object : XC_MethodHook() {
                             override fun afterHookedMethod(param: MethodHookParam) {
-                                if (isSpoofingActive(pkgName)) {
-                                    val provider = (param.args.firstOrNull() as? String)
-                                        ?: LocationManager.GPS_PROVIDER
+                                val provider = (param.args.firstOrNull() as? String)
+                                    ?: LocationManager.GPS_PROVIDER
+                                val active = isSpoofingActive(pkgName)
+                                if (active) {
                                     val origin = param.result as? Location
                                     param.result = createSpoofedLocation(origin, provider)
                                 }
+                                HookLogReporter.recordLocationRequest(
+                                    packageName = pkgName,
+                                    action = "LocationManager.getLastKnownLocation",
+                                    details = if (active) {
+                                        "provider=$provider -> 返回伪装位置 ${formatCoord()}"
+                                    } else {
+                                        "provider=$provider -> 未开启伪装，透传真实位置"
+                                    },
+                                    isSpoofed = active,
+                                    throttleMs = 500L
+                                )
                             }
                         }
                     )
@@ -451,9 +532,21 @@ object LocationHook {
                         method,
                         object : XC_MethodHook() {
                             override fun beforeHookedMethod(param: MethodHookParam) {
-                                if (!isSpoofingActive(pkgName)) return
                                 val provider = (param.args.firstOrNull() as? String)
                                     ?: LocationManager.GPS_PROVIDER
+                                val active = isSpoofingActive(pkgName)
+                                HookLogReporter.recordLocationRequest(
+                                    packageName = pkgName,
+                                    action = "LocationManager.getCurrentLocation",
+                                    details = if (active) {
+                                        "provider=$provider -> 拦截并回调伪装位置 ${formatCoord()}"
+                                    } else {
+                                        "provider=$provider -> 未开启伪装，透传真实请求"
+                                    },
+                                    isSpoofed = active,
+                                    throttleMs = 300L
+                                )
+                                if (!active) return
                                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                                     val consumer = param.args.firstOrNull { it is Consumer<*> }
                                     if (consumer != null) {
@@ -476,15 +569,28 @@ object LocationHook {
                         object : XC_MethodHook() {
                             override fun beforeHookedMethod(param: MethodHookParam) {
                                 val listener = param.args.firstOrNull { it is LocationListener } as? LocationListener
-                                    ?: return
                                 val provider = (param.args.firstOrNull { it is String } as? String)
                                     ?: LocationManager.GPS_PROVIDER
+                                val active = isSpoofingActive(pkgName)
 
+                                HookLogReporter.recordLocationRequest(
+                                    packageName = pkgName,
+                                    action = "LocationManager.${method.name}",
+                                    details = if (active) {
+                                        "provider=$provider, listener=${listener?.javaClass?.simpleName ?: "PendingIntent"} -> 注入伪装定位流 ${formatCoord()}"
+                                    } else {
+                                        "provider=$provider, listener=${listener?.javaClass?.simpleName ?: "PendingIntent"} -> 未开启伪装，监听真实位置"
+                                    },
+                                    isSpoofed = active,
+                                    throttleMs = 300L
+                                )
+
+                                if (listener == null) return
                                 hookListenerClassIfNeeded(listener.javaClass, pkgName)
                                 activeListeners[listener] = provider
                                 ensureLiveTickerRunning()
 
-                                if (isSpoofingActive(pkgName)) {
+                                if (active) {
                                     val initialLoc = createSpoofedLocation(null, provider)
                                     mainHandler.post {
                                         runCatching { listener.onLocationChanged(initialLoc) }
@@ -502,6 +608,13 @@ object LocationHook {
                                 val listener = param.args.firstOrNull { it is LocationListener } as? LocationListener
                                 if (listener != null) {
                                     activeListeners.remove(listener)
+                                    HookLogReporter.recordLocationRequest(
+                                        packageName = pkgName,
+                                        action = "LocationManager.removeUpdates",
+                                        details = "移除监听器 ${listener.javaClass.simpleName}",
+                                        isSpoofed = isSpoofingActive(pkgName),
+                                        throttleMs = 300L
+                                    )
                                 }
                             }
                         }
@@ -520,7 +633,17 @@ object LocationHook {
                     method,
                     object : XC_MethodHook() {
                         override fun beforeHookedMethod(param: MethodHookParam) {
-                            if (!isSpoofingActive(pkgName)) return
+                            val active = isSpoofingActive(pkgName)
+                            if (!active) {
+                                HookLogReporter.recordLocationRequest(
+                                    packageName = pkgName,
+                                    action = "LocationListener.onLocationChanged",
+                                    details = "listener=${listenerClass.simpleName} -> 透传系统真实位置回调",
+                                    isSpoofed = false,
+                                    throttleMs = 3000L
+                                )
+                                return
+                            }
                             val firstArg = param.args.firstOrNull() ?: return
                             if (firstArg is Location) {
                                 amendLocationInPlace(firstArg)
@@ -529,6 +652,13 @@ object LocationHook {
                                     amendLocationInPlace(it)
                                 }
                             }
+                            HookLogReporter.recordLocationRequest(
+                                packageName = pkgName,
+                                action = "LocationListener.onLocationChanged",
+                                details = "listener=${listenerClass.simpleName} -> 覆写回调为伪装位置 ${formatCoord()}",
+                                isSpoofed = true,
+                                throttleMs = 2000L
+                            )
                         }
                     }
                 )
@@ -549,7 +679,8 @@ object LocationHook {
                             method,
                             object : XC_MethodHook() {
                                 override fun afterHookedMethod(param: MethodHookParam) {
-                                    if (isSpoofingActive(pkgName)) {
+                                    val active = isSpoofingActive(pkgName)
+                                    if (active) {
                                         val loc = param.result as? Location
                                         if (loc != null) {
                                             amendLocationInPlace(loc)
@@ -557,6 +688,13 @@ object LocationHook {
                                             param.result = createSpoofedLocation()
                                         }
                                     }
+                                    HookLogReporter.recordLocationRequest(
+                                        packageName = pkgName,
+                                        action = "GmsLocationResult.getLastLocation",
+                                        details = if (active) "GMS 返回伪装位置 ${formatCoord()}" else "GMS 透传真实位置",
+                                        isSpoofed = active,
+                                        throttleMs = 2000L
+                                    )
                                 }
                             }
                         )
@@ -566,7 +704,8 @@ object LocationHook {
                             method,
                             object : XC_MethodHook() {
                                 override fun afterHookedMethod(param: MethodHookParam) {
-                                    if (isSpoofingActive(pkgName)) {
+                                    val active = isSpoofingActive(pkgName)
+                                    if (active) {
                                         @Suppress("UNCHECKED_CAST")
                                         val list = param.result as? List<Location>
                                         if (!list.isNullOrEmpty()) {
@@ -575,6 +714,13 @@ object LocationHook {
                                             param.result = listOf(createSpoofedLocation())
                                         }
                                     }
+                                    HookLogReporter.recordLocationRequest(
+                                        packageName = pkgName,
+                                        action = "GmsLocationResult.getLocations",
+                                        details = if (active) "GMS 位置列表改写 -> ${formatCoord()}" else "GMS 透传真实位置列表",
+                                        isSpoofed = active,
+                                        throttleMs = 2000L
+                                    )
                                 }
                             }
                         )
@@ -601,7 +747,20 @@ object LocationHook {
                                 override fun beforeHookedMethod(param: MethodHookParam) {
                                     val callback = param.args.firstOrNull {
                                         it != null && gmsCallbackClass.isAssignableFrom(it.javaClass)
-                                    } ?: return
+                                    }
+                                    val active = isSpoofingActive(pkgName)
+                                    HookLogReporter.recordLocationRequest(
+                                        packageName = pkgName,
+                                        action = "FusedLocationProviderClient.requestLocationUpdates",
+                                        details = if (active) {
+                                            "callback=${callback?.javaClass?.simpleName ?: "PendingIntent"} -> 注入 GMS 伪装位置流 ${formatCoord()}"
+                                        } else {
+                                            "callback=${callback?.javaClass?.simpleName ?: "PendingIntent"} -> 未开启伪装，透传 GMS 请求"
+                                        },
+                                        isSpoofed = active,
+                                        throttleMs = 300L
+                                    )
+                                    if (callback == null) return
                                     hookGmsCallbackClassIfNeeded(callback.javaClass, pkgName)
                                     activeGmsCallbacks[callback] = true
                                     ensureLiveTickerRunning()
@@ -618,7 +777,34 @@ object LocationHook {
                                     }
                                     if (callback != null) {
                                         activeGmsCallbacks.remove(callback)
+                                        HookLogReporter.recordLocationRequest(
+                                            packageName = pkgName,
+                                            action = "FusedLocationProviderClient.removeLocationUpdates",
+                                            details = "移除 GMS 回调 ${callback.javaClass.simpleName}",
+                                            isSpoofed = isSpoofingActive(pkgName),
+                                            throttleMs = 300L
+                                        )
                                     }
+                                }
+                            }
+                        )
+                    } else if (method.name == "getLastLocation" || method.name == "getCurrentLocation") {
+                        XposedBridge.hookMethod(
+                            method,
+                            object : XC_MethodHook() {
+                                override fun beforeHookedMethod(param: MethodHookParam) {
+                                    val active = isSpoofingActive(pkgName)
+                                    HookLogReporter.recordLocationRequest(
+                                        packageName = pkgName,
+                                        action = "FusedLocationProviderClient.${method.name}",
+                                        details = if (active) {
+                                            "发起 GMS 单次定位请求 -> 将返回伪装位置 ${formatCoord()}"
+                                        } else {
+                                            "发起 GMS 单次定位请求 -> 未开启伪装，透传真实位置"
+                                        },
+                                        isSpoofed = active,
+                                        throttleMs = 500L
+                                    )
                                 }
                             }
                         )
@@ -636,13 +822,30 @@ object LocationHook {
                     method,
                     object : XC_MethodHook() {
                         override fun beforeHookedMethod(param: MethodHookParam) {
-                            if (!isSpoofingActive(pkgName)) return
+                            val active = isSpoofingActive(pkgName)
+                            if (!active) {
+                                HookLogReporter.recordLocationRequest(
+                                    packageName = pkgName,
+                                    action = "LocationCallback.onLocationResult",
+                                    details = "callback=${callbackClass.simpleName} -> 透传 GMS 真实位置回调",
+                                    isSpoofed = false,
+                                    throttleMs = 3000L
+                                )
+                                return
+                            }
                             val resultObj = param.args.firstOrNull() ?: return
                             runCatching {
                                 @Suppress("UNCHECKED_CAST")
                                 val locations = XposedHelpers.callMethod(resultObj, "getLocations") as? List<Location>
                                 locations?.forEach { amendLocationInPlace(it) }
                             }
+                            HookLogReporter.recordLocationRequest(
+                                packageName = pkgName,
+                                action = "LocationCallback.onLocationResult",
+                                details = "callback=${callbackClass.simpleName} -> 覆写 GMS 回调为伪装位置 ${formatCoord()}",
+                                isSpoofed = true,
+                                throttleMs = 2000L
+                            )
                         }
                     }
                 )
@@ -668,6 +871,13 @@ object LocationHook {
                                         if (realCount < 8) {
                                             param.result = 12
                                         }
+                                        HookLogReporter.recordLocationRequest(
+                                            packageName = pkgName,
+                                            action = "GnssStatus.getSatelliteCount",
+                                            details = "增强卫星状态伪装 -> 卫星数量=${param.result} (真实=$realCount), 信噪比=38.0dBHz",
+                                            isSpoofed = true,
+                                            throttleMs = 5000L
+                                        )
                                     }
                                 }
                             }

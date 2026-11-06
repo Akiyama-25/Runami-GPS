@@ -16,9 +16,11 @@ import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.Marker
 import com.google.android.gms.maps.model.MarkerOptions
 import io.github.jqssun.gpssetter.R
+import io.github.jqssun.gpssetter.utils.AppLogger
 import io.github.jqssun.gpssetter.utils.ext.getAddress
 import io.github.jqssun.gpssetter.utils.ext.showToast
 import kotlinx.coroutines.launch
+import java.util.Locale
 
 typealias CustomLatLng = LatLng
 
@@ -139,6 +141,16 @@ class MapActivity : BaseMapActivity(), OnMapReadyCallback, GoogleMap.OnMapClickL
             mMap.animateCamera(CameraUpdateFactory.newLatLng(latLng))
             lat = latLng.latitude
             lon = latLng.longitude
+            AppLogger.logApp(
+                action = "MapActivity.onMapClick (点击地图选点)",
+                details = String.format(
+                    Locale.US,
+                    "选定坐标=(%.6f, %.6f), 实时生效=%s",
+                    lat,
+                    lon,
+                    if (viewModel.isStarted) "是" else "否（待点击开始按钮）"
+                )
+            )
             syncLocationIfStarted()
         }
     }

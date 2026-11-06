@@ -29,6 +29,11 @@
             android:label="@string/title_activity_settings"
             android:launchMode="singleTop" />
         <activity
+            android:name=".ui.LogActivity"
+            android:exported="false"
+            android:label="@string/title_activity_logs"
+            android:launchMode="singleTop" />
+        <activity
             android:name=".ui.MapActivity"
             android:exported="true">
             <intent-filter>
@@ -55,6 +60,12 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/provider_paths" />
         </provider>
+
+        <provider
+            android:name=".utils.LogContentProvider"
+            android:authorities="${applicationId}.logprovider"
+            android:exported="true"
+            tools:ignore="ExportedContentProvider" />
 
         <meta-data
             android:name="xposedmodule"

@@ -11,6 +11,7 @@ import dagger.hilt.components.SingletonComponent
 import io.github.jqssun.gpssetter.module.util.ApplicationScope
 import io.github.jqssun.gpssetter.room.AppDatabase
 import io.github.jqssun.gpssetter.room.FavoriteDao
+import io.github.jqssun.gpssetter.room.LogDao
 import io.github.jqssun.gpssetter.update.GitHubService
 import io.github.jqssun.gpssetter.utils.PrefManager
 import kotlinx.coroutines.CoroutineScope
@@ -21,7 +22,7 @@ import javax.inject.Singleton
 
 @Module
 @InstallIn(SingletonComponent::class)
-object AppModule{
+object AppModule {
 
     @Singleton
     @Provides
@@ -36,7 +37,6 @@ object AppModule{
     fun provideDownloadManger(application: Application) =
         application.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
 
-
     @Singleton
     @Provides
     fun provideGithubService(retrofit: Retrofit): GitHubService =
@@ -44,27 +44,31 @@ object AppModule{
 
     @Provides
     @Singleton
-    fun provideDatabase(application: Application, callback: AppDatabase.Callback)
-            = Room.databaseBuilder(application, AppDatabase::class.java, "user_database")
-        .allowMainThreadQueries()
-        .fallbackToDestructiveMigration()
-        .addCallback(callback)
-        .build()
-
+    fun provideDatabase(application: Application, callback: AppDatabase.Callback): AppDatabase =
+        Room.databaseBuilder(application, AppDatabase::class.java, "user_database")
+            .addMigrations(AppDatabase.MIGRATION_1_2)
+            .allowMainThreadQueries()
+            .fallbackToDestructiveMigration()
+            .addCallback(callback)
+            .build()
 
     @Singleton
     @Provides
-    fun providesUserDao(favoriteDatabase: AppDatabase) : FavoriteDao =
+    fun providesUserDao(favoriteDatabase: AppDatabase): FavoriteDao =
         favoriteDatabase.favoriteDao()
 
     @Singleton
     @Provides
-    fun provideSettingRepo() : PrefManager =
+    fun providesLogDao(appDatabase: AppDatabase): LogDao =
+        appDatabase.logDao()
+
+    @Singleton
+    @Provides
+    fun provideSettingRepo(): PrefManager =
         PrefManager
 
     @ApplicationScope
     @Provides
     @Singleton
     fun providesApplicationScope() = CoroutineScope(SupervisorJob())
-
 }
