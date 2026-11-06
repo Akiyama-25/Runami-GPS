@@ -34,30 +34,34 @@ class MapActivity: BaseMapActivity(), OnMapReadyCallback, MapLibreMap.OnMapClick
     private var mMarker: Marker? = null
 
     override fun hasMarker(): Boolean {
-        // TODO: if (!mMarker?.isVisible!!){
-        if (mMarker != null) {
-            return true
-        }
-        return false
+        return mMarker != null
     }
     private fun updateMarker(it: LatLng) {
-        // TODO: mMarker?.isVisible = true
         if (mMarker == null) {
             mMarker = mMap.addMarker(
                 MarkerOptions().position(it)
             )
         } else {
-            mMarker?.position = it!!
+            mMarker?.position = it
         }
     }
     private fun removeMarker() {
-        mMarker?.remove() // mMarker?.isVisible = false
+        mMarker?.remove()
         mMarker = null
+    }
+    private fun syncLocationIfStarted() {
+        if (viewModel.isStarted) {
+            viewModel.update(true, lat, lon)
+            lifecycleScope.launch {
+                mLatLng?.getAddress(getActivityInstance())?.collect { value ->
+                    showStartNotification(value)
+                }
+            }
+        }
     }
     override fun initializeMap() {
         val key = packageManager.getApplicationInfo(packageName, PackageManager.GET_META_DATA).metaData.getString("com.maplibre.AccessToken")
         MapLibre.getInstance(this, key, WellKnownTileServer.Mapbox)
-        // val mapFragment = supportFragmentManager.findFragmentById(R.id.map) as SupportMapFragment?
         val mapFragment = SupportMapFragment.newInstance()
         supportFragmentManager.beginTransaction()
             .replace(R.id.map, mapFragment)
@@ -67,22 +71,17 @@ class MapActivity: BaseMapActivity(), OnMapReadyCallback, MapLibreMap.OnMapClick
     override fun moveMapToNewLocation(moveNewLocation: Boolean) {
         if (moveNewLocation) {
             mLatLng = LatLng(lat, lon)
-            mLatLng.let { latLng ->
-                // mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(latLng!!, 12.0f.toDouble()))
+            mLatLng?.let { latLng ->
                 mMap.animateCamera(CameraUpdateFactory.newCameraPosition(
                         CameraPosition.Builder()
-                        .target(latLng!!)
+                        .target(latLng)
                         .zoom(12.0f.toDouble())
                         .bearing(0f.toDouble())
                         .tilt(0f.toDouble())
                         .build()
                 ))
-                mMarker?.apply {
-                    position = latLng
-                    // TODO:
-                    // isVisible = true
-                    // showInfoWindow()
-                }
+                updateMarker(latLng)
+                syncLocationIfStarted()
             }
         }
     }
@@ -111,55 +110,43 @@ class MapActivity: BaseMapActivity(), OnMapReadyCallback, MapLibreMap.OnMapClick
                         .build()
                     )
                     locationComponent.isLocationComponentEnabled = true
-                    locationComponent.cameraMode = CameraMode.TRACKING
+                    locationComponent.cameraMode = CameraMode.NONE
                     locationComponent.renderMode = RenderMode.COMPASS
                 } else {
                     ActivityCompat.requestPermissions(this@MapActivity, arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), 99);
                 }
             }
-            // TODO: fix bug with drawer
             uiSettings.setAllGesturesEnabled(true)
             uiSettings.setCompassEnabled(true)
             uiSettings.setCompassMargins(0,480,120,0)
             uiSettings.setLogoEnabled(true)
             uiSettings.setLogoMargins(0,0,0,80)
             uiSettings.setAttributionEnabled(false)
-            // uiSettings.setAttributionMargins(80,0,0,80)
-            // setPadding(0,0,0,80)
 
 
             val zoom = 12.0f
             lat = viewModel.getLat
             lon  = viewModel.getLng
             mLatLng = LatLng(lat, lon)
-            mLatLng.let {
-                updateMarker(it!!)
-                // TODO: MarkerOptions().position(it!!)
-                // .draggable(false).icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED).visible(false)
+            mLatLng?.let {
+                if (viewModel.isStarted) {
+                    updateMarker(it)
+                } else {
+                    removeMarker()
+                }
                 mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(it, zoom.toDouble()))
             }
 
             addOnMapClickListener(this@MapActivity)
-            if (viewModel.isStarted){
-                mMarker?.let {
-                    // TODO:
-                    // it.isVisible = true
-                    // it.showInfoWindow()
-                }
-            }
         }
     }
     override fun onMapClick(latLng: LatLng): Boolean {
         mLatLng = latLng
-        mMarker?.let { marker ->
-            mLatLng.let {
-                // marker.isVisible = true
-                updateMarker(it!!)
-                mMap.animateCamera(CameraUpdateFactory.newLatLng(it))
-                lat = it.latitude
-                lon = it.longitude
-            }
-        }
+        updateMarker(latLng)
+        mMap.animateCamera(CameraUpdateFactory.newLatLng(latLng))
+        lat = latLng.latitude
+        lon = latLng.longitude
+        syncLocationIfStarted()
         return true
     }
 

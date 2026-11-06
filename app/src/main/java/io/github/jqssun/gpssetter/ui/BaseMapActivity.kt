@@ -236,9 +236,9 @@ abstract class BaseMapActivity: AppCompatActivity() {
             setTitle(getString(R.string.add_fav_dialog_title))
             setPositiveButton(getString(R.string.dialog_button_add)) { _, _ ->
                 val s = editText.text.toString()
-                if (hasMarker()){
-                  showToast(getString(R.string.location_not_select))
-                }else{
+                if (!hasMarker()) {
+                    showToast(getString(R.string.location_not_select))
+                } else {
                     viewModel.storeFavorite(s, lat, lon)
                     viewModel.response.observe(getActivityInstance()){
                         if (it == (-1).toLong()) showToast(getString(R.string.cant_save)) else showToast(getString(R.string.save))
@@ -440,9 +440,10 @@ abstract class BaseMapActivity: AppCompatActivity() {
 
     private val mLocationCallback = object : LocationCallback() {
         override fun onLocationResult(locationResult: LocationResult) {
-            val mLastLocation: Location = locationResult.lastLocation!!
+            val mLastLocation: Location = locationResult.lastLocation ?: return
             lat = mLastLocation.latitude
             lon = mLastLocation.longitude
+            moveMapToNewLocation(true)
         }
     }
 

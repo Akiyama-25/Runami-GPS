@@ -82,22 +82,27 @@ object PrefManager   {
         get() = pref.getBoolean(ENABLE_JOYSTICK, false)
         set(value) = pref.edit().putBoolean(ENABLE_JOYSTICK, value).apply()
 
-    fun update(start:Boolean, la: Double, ln: Double) {
-        runInBackground {
-            val prefEditor = pref.edit()
-            prefEditor.putFloat(LATITUDE, la.toFloat())
-            prefEditor.putFloat(LONGITUDE, ln.toFloat())
-            prefEditor.putBoolean(START, start)
-            prefEditor.apply()
-        }
-
+    fun update(start: Boolean, la: Double, ln: Double) {
+        val prefEditor = pref.edit()
+        prefEditor.putFloat(LATITUDE, la.toFloat())
+        prefEditor.putFloat(LONGITUDE, ln.toFloat())
+        prefEditor.putBoolean(START, start)
+        prefEditor.apply()
+        makeWorldReadable()
     }
 
-    @OptIn(DelicateCoroutinesApi::class)
-    private fun runInBackground(method: suspend () -> Unit){
-        GlobalScope.launch(Dispatchers.IO) {
-            method.invoke()
+    @SuppressLint("SetWorldReadable")
+    fun makeWorldReadable() {
+        runCatching {
+            val prefsDir = java.io.File(gsApp.applicationInfo.dataDir, "shared_prefs")
+            val prefsFile = java.io.File(prefsDir, "${BuildConfig.APPLICATION_ID}_prefs.xml")
+            if (prefsDir.exists()) {
+                prefsDir.setReadable(true, false)
+                prefsDir.setExecutable(true, false)
+            }
+            if (prefsFile.exists()) {
+                prefsFile.setReadable(true, false)
+            }
         }
     }
-
 }

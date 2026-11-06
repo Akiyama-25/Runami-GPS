@@ -30,17 +30,24 @@ class MapActivity: BaseMapActivity(), OnMapReadyCallback, GoogleMap.OnMapClickLi
     private var mMarker: Marker? = null
 
     override fun hasMarker(): Boolean {
-        if (!mMarker?.isVisible!!) {
-            return true
-        }
-        return false
+        return mMarker?.isVisible == true
     }
     private fun updateMarker(it: LatLng) {
-        mMarker?.position = it!!
+        mMarker?.position = it
         mMarker?.isVisible = true
     }
     private fun removeMarker() {
         mMarker?.isVisible = false
+    }
+    private fun syncLocationIfStarted() {
+        if (viewModel.isStarted) {
+            viewModel.update(true, lat, lon)
+            lifecycleScope.launch {
+                mLatLng?.getAddress(getActivityInstance())?.collect { value ->
+                    showStartNotification(value)
+                }
+            }
+        }
     }
     override fun initializeMap() {
         val mapFragment = SupportMapFragment.newInstance()
@@ -52,10 +59,10 @@ class MapActivity: BaseMapActivity(), OnMapReadyCallback, GoogleMap.OnMapClickLi
     override fun moveMapToNewLocation(moveNewLocation: Boolean) {
         if (moveNewLocation) {
             mLatLng = LatLng(lat, lon)
-            mLatLng.let { latLng ->
+            mLatLng?.let { latLng ->
                 mMap.animateCamera(CameraUpdateFactory.newCameraPosition(
                         CameraPosition.Builder()
-                        .target(latLng!!)
+                        .target(latLng)
                         .zoom(12.0f)
                         .bearing(0f)
                         .tilt(0f)
@@ -66,6 +73,7 @@ class MapActivity: BaseMapActivity(), OnMapReadyCallback, GoogleMap.OnMapClickLi
                     isVisible = true
                     showInfoWindow()
                 }
+                syncLocationIfStarted()
             }
         }
     }
@@ -92,34 +100,34 @@ class MapActivity: BaseMapActivity(), OnMapReadyCallback, GoogleMap.OnMapClickLi
             lat = viewModel.getLat
             lon  = viewModel.getLng
             mLatLng = LatLng(lat, lon)
-            mLatLng.let {
+            mLatLng?.let {
                 mMarker = addMarker(
-                    MarkerOptions().position(it!!).draggable(false).icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED)).visible(false)
+                    MarkerOptions()
+                        .position(it)
+                        .draggable(false)
+                        .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED))
+                        .visible(viewModel.isStarted)
                 )
                 mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(it, zoom))
             }
 
-            
             setOnMapClickListener(this@MapActivity)
             if (viewModel.isStarted){
                 mMarker?.let {
-                    // TODO:
-                    // it.isVisible = true
-                    // it.showInfoWindow()
+                    it.isVisible = true
+                    it.showInfoWindow()
                 }
             }
         }
     }
     override fun onMapClick(latLng: LatLng) {
         mLatLng = latLng
-        mMarker?.let { marker ->
-            mLatLng.let {
-                // marker.isVisible = true
-                updateMarker(it!!)
-                mMap.animateCamera(CameraUpdateFactory.newLatLng(it))
-                lat = it.latitude
-                lon = it.longitude
-            }
+        mMarker?.let {
+            updateMarker(latLng)
+            mMap.animateCamera(CameraUpdateFactory.newLatLng(latLng))
+            lat = latLng.latitude
+            lon = latLng.longitude
+            syncLocationIfStarted()
         }
     }
 
