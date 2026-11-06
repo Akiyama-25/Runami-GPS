@@ -41,14 +41,24 @@ android {
             keyPassword "android"
         }
         release {
-            def keystorePropertiesFile = rootProject.file("local.properties")
+            def keystorePropertiesFile = rootProject.file("keystore.properties")
+            if (!keystorePropertiesFile.exists()) {
+                keystorePropertiesFile = rootProject.file("local.properties")
+            }
+            def keystoreProperties = new Properties()
             if (keystorePropertiesFile.exists()) {
-                def keystoreProperties = new Properties()
                 keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
-                keyAlias keystoreProperties['keyAlias']
-                keyPassword keystoreProperties['keyPassword']
-                storeFile file(keystoreProperties['storeFile'])
-                storePassword keystoreProperties['storePassword']
+            }
+            def configuredStoreFile = keystoreProperties['storeFile'] ?: System.getenv("KEYSTORE_FILE")
+            if (configuredStoreFile != null && !configuredStoreFile.toString().trim().isEmpty()) {
+                def resolvedFile = file(configuredStoreFile.toString().trim())
+                if (!resolvedFile.exists()) {
+                    resolvedFile = rootProject.file(configuredStoreFile.toString().trim())
+                }
+                storeFile resolvedFile
+                storePassword((keystoreProperties['storePassword'] ?: System.getenv("STORE_PASSWORD") ?: "android").toString())
+                keyAlias((keystoreProperties['keyAlias'] ?: System.getenv("KEY_ALIAS") ?: "androiddebugkey").toString())
+                keyPassword((keystoreProperties['keyPassword'] ?: System.getenv("KEY_PASSWORD") ?: "android").toString())
             } else {
                 storeFile file("${rootDir}/debug.keystore")
                 storePassword "android"

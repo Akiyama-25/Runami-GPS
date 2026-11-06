@@ -2,6 +2,7 @@
 .idea
 *.jks
 local.properties
+keystore.properties
 
 *.iml
 .gradle

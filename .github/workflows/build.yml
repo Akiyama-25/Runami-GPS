@@ -11,93 +11,14 @@ on:
       - master
   workflow_dispatch:
 
-env:
-  INSTABOX_API_BASE: ${{ vars.INSTABOX_API_BASE || 'https://api.instabox.sh/v1' }}
-
 jobs:
-  wake-instabox:
-    name: Wake Instabox Instance
+  instabox-build:
+    name: Wake Instabox, Sign & Build APK
     runs-on: ubuntu-latest
-    steps:
-      - name: Wake and Verify Instabox Instance via API
-        env:
-          INSTABOX_API_KEY: ${{ secrets.INSTABOX_API_KEY }}
-          INSTABOX_MACHINE_ID: ${{ secrets.INSTABOX_MACHINE_ID }}
-        run: |
-          set -euo pipefail
-          if [ -z "${INSTABOX_API_KEY:-}" ] || [ -z "${INSTABOX_MACHINE_ID:-}" ]; then
-            echo "::error::Missing INSTABOX_API_KEY or INSTABOX_MACHINE_ID in repository secrets."
-            exit 1
-          fi
-
-          MACHINE_URL="${INSTABOX_API_BASE}/machines/${INSTABOX_MACHINE_ID}"
-          echo "Checking Instabox instance status (${INSTABOX_MACHINE_ID})..."
-
-          STATUS_JSON=$(curl -sS -X GET "$MACHINE_URL" \
-            -H "Authorization: Bearer ${INSTABOX_API_KEY}" \
-            -H "X-API-Key: ${INSTABOX_API_KEY}" \
-            -H "Accept: application/json" || echo "{}")
-
-          STATE=$(echo "$STATUS_JSON" | jq -r '.state // .status // "unknown"')
-          echo "Current machine state: ${STATE}"
-
-          if [ "$STATE" != "running" ]; then
-            echo "Sending wake/resume signal to Instabox instance..."
-            curl -sS -X POST "${MACHINE_URL}/wake" \
-              -H "Authorization: Bearer ${INSTABOX_API_KEY}" \
-              -H "X-API-Key: ${INSTABOX_API_KEY}" \
-              -H "Idempotency-Key: $(uuidgen)" \
-              -H "Content-Type: application/json" || true
-
-            curl -sS -X POST "${MACHINE_URL}/resume" \
-              -H "Authorization: Bearer ${INSTABOX_API_KEY}" \
-              -H "X-API-Key: ${INSTABOX_API_KEY}" \
-              -H "Idempotency-Key: $(uuidgen)" \
-              -H "Content-Type: application/json" || true
-
-            if [ "$STATE" = "stopped" ] || [ "$STATE" = "halted" ]; then
-              echo "Machine is stopped, triggering cold start..."
-              curl -sS -X POST "${MACHINE_URL}/start" \
-                -H "Authorization: Bearer ${INSTABOX_API_KEY}" \
-                -H "X-API-Key: ${INSTABOX_API_KEY}" \
-                -H "Idempotency-Key: $(uuidgen)" \
-                -H "Content-Type: application/json" || true
-            fi
-          fi
-
-          echo "Waiting for Instabox instance to reach 'running' state..."
-          for i in $(seq 1 36); do
-            STATUS_JSON=$(curl -sS -X GET "$MACHINE_URL" \
-              -H "Authorization: Bearer ${INSTABOX_API_KEY}" \
-              -H "X-API-Key: ${INSTABOX_API_KEY}" \
-              -H "Accept: application/json" || echo "{}")
-            STATE=$(echo "$STATUS_JSON" | jq -r '.state // .status // "unknown"')
-            echo "Attempt ${i}/36: state=${STATE}"
-            if [ "$STATE" = "running" ]; then
-              echo "Instabox instance is running!"
-              break
-            fi
-            if [ "$i" -eq 36 ]; then
-              echo "::error::Timed out waiting for Instabox instance to wake up."
-              exit 1
-            fi
-            sleep 5
-          done
-
-          echo "Acquiring activity lease for build job..."
-          curl -sS -X PUT "${MACHINE_URL}/activity-leases/gh-build-${GITHUB_RUN_ID}" \
-            -H "Authorization: Bearer ${INSTABOX_API_KEY}" \
-            -H "X-API-Key: ${INSTABOX_API_KEY}" \
-            -H "Content-Type: application/json" \
-            -d '{"ttlSeconds": 3600}' || true
-
-          # Allow runner agent a few seconds to reconnect to GitHub Actions
-          sleep 5
-
-  build:
-    name: Sign & Build APK on Instabox
-    needs: wake-instabox
-    runs-on: ${{ vars.INSTABOX_RUNNER_LABEL || 'self-hosted' }}
+    env:
+      INSTABOX_API_BASE: ${{ secrets.INSTABOX_API_BASE || vars.INSTABOX_API_BASE || secrets.INSTABOX_API_URL || vars.INSTABOX_API_URL || 'https://api.instabox.sh/v1' }}
+      INSTABOX_API_KEY: ${{ secrets.INSTABOX_API_KEY || vars.INSTABOX_API_KEY || secrets.INSTABOX_TOKEN || vars.INSTABOX_TOKEN || secrets.INSTABOX_KEY || vars.INSTABOX_KEY }}
+      INSTABOX_MACHINE_ID: ${{ secrets.INSTABOX_MACHINE_ID || vars.INSTABOX_MACHINE_ID || secrets.INSTABOX_MACHINE || vars.INSTABOX_MACHINE || secrets.MACHINE_ID || vars.MACHINE_ID }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -109,14 +30,19 @@ jobs:
           java-version: '17'
           cache: 'gradle'
 
-      - name: Generate Signing Keystore & Configure local.properties
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Generate Signing Keystore on GitHub
         env:
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS || 'runami_key' }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD || 'runami_pass_123456' }}
-          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD || 'runami_pass_123456' }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS || vars.KEY_ALIAS || 'runami_key' }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD || vars.KEY_PASSWORD || 'runami_pass_123456' }}
+          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD || vars.STORE_PASSWORD || 'runami_pass_123456' }}
         run: |
           set -euo pipefail
-          KEYSTORE_FILE="$GITHUB_WORKSPACE/release-signing.jks"
+          KEYSTORE_FILE="release-signing.jks"
           rm -f "$KEYSTORE_FILE"
 
           echo "Generating self-signed RSA keystore via keytool..."
@@ -130,22 +56,165 @@ jobs:
             -keypass "$KEY_PASSWORD" \
             -dname "CN=Akari Runami, OU=Runami GPS, O=Akari, L=Tokyo, S=Tokyo, C=JP"
 
-          cat > local.properties <<EOF
-          storeFile=$KEYSTORE_FILE
+          cat > keystore.properties <<EOF
+          storeFile=release-signing.jks
           storePassword=$STORE_PASSWORD
           keyAlias=$KEY_ALIAS
           keyPassword=$KEY_PASSWORD
           EOF
 
-      - name: Build Signed Release APK
+      - name: Wake Instabox Instance via API
         run: |
-          chmod +x ./gradlew
-          ./gradlew assembleRelease --stacktrace
+          set -euo pipefail
+          API_BASE="${INSTABOX_API_BASE%/}"
 
-      - name: Clean Up Signing Credentials
+          if [ -z "${INSTABOX_API_KEY:-}" ]; then
+            echo "::warning::INSTABOX_API_KEY is not set in Secrets or Variables. Skipping remote Instabox wake."
+            echo "INSTABOX_READY=false" >> "$GITHUB_ENV"
+            exit 0
+          fi
+
+          echo "Querying Instabox machines list from ${API_BASE}/machines ..."
+          LIST_JSON=$(curl -sS -X GET "${API_BASE}/machines" \
+            -H "Authorization: Bearer ${INSTABOX_API_KEY}" \
+            -H "X-API-Key: ${INSTABOX_API_KEY}" \
+            -H "Accept: application/json" || echo "{}")
+
+          TARGET_ID="${INSTABOX_MACHINE_ID:-}"
+          if [ -z "$TARGET_ID" ]; then
+            TARGET_ID=$(echo "$LIST_JSON" | jq -r '(.machines // .data // [])[0].id // empty' 2>/dev/null || true)
+          else
+            RESOLVED_ID=$(echo "$LIST_JSON" | jq -r --arg t "$TARGET_ID" '(.machines // .data // [])[] | select(.id == $t or .name == $t) | .id' 2>/dev/null | head -n 1 || true)
+            if [ -n "$RESOLVED_ID" ]; then
+              TARGET_ID="$RESOLVED_ID"
+            fi
+          fi
+
+          if [ -z "$TARGET_ID" ]; then
+            echo "::warning::Could not resolve Instabox Machine ID from API response. Response: $LIST_JSON"
+            echo "INSTABOX_READY=false" >> "$GITHUB_ENV"
+            exit 0
+          fi
+
+          echo "Resolved Instabox Machine ID: ${TARGET_ID}"
+          echo "RESOLVED_MACHINE_ID=${TARGET_ID}" >> "$GITHUB_ENV"
+          MACHINE_URL="${API_BASE}/machines/${TARGET_ID}"
+
+          get_machine_state() {
+            local resp
+            resp=$(curl -sS -X GET "$MACHINE_URL" \
+              -H "Authorization: Bearer ${INSTABOX_API_KEY}" \
+              -H "X-API-Key: ${INSTABOX_API_KEY}" \
+              -H "Accept: application/json" || echo "{}")
+            echo "$resp" | jq -r '(.status // .state // .machine.status // .machine.state // .data.status // .data.state // "unknown")' 2>/dev/null | tr '[:upper:]' '[:lower:]'
+          }
+
+          STATE=$(get_machine_state)
+          echo "Initial Instabox state: ${STATE}"
+
+          if [ "$STATE" != "running" ]; then
+            echo "Waking / resuming Instabox instance ${TARGET_ID}..."
+            if [ "$STATE" = "stopped" ] || [ "$STATE" = "halted" ]; then
+              curl -sS -X POST "${MACHINE_URL}/start" \
+                -H "Authorization: Bearer ${INSTABOX_API_KEY}" \
+                -H "X-API-Key: ${INSTABOX_API_KEY}" \
+                -H "Idempotency-Key: $(uuidgen)" \
+                -H "Content-Type: application/json" || true
+            else
+              HTTP_CODE=$(curl -sS -o /tmp/wake_resp.json -w "%{http_code}" -X POST "${MACHINE_URL}/wake" \
+                -H "Authorization: Bearer ${INSTABOX_API_KEY}" \
+                -H "X-API-Key: ${INSTABOX_API_KEY}" \
+                -H "Idempotency-Key: $(uuidgen)" \
+                -H "Content-Type: application/json" || echo "000")
+              echo "Wake response HTTP ${HTTP_CODE}"
+              STATE=$(get_machine_state)
+              if [ "$STATE" != "running" ] && [ "$STATE" != "resuming" ] && [ "$STATE" != "starting" ]; then
+                curl -sS -X POST "${MACHINE_URL}/resume" \
+                  -H "Authorization: Bearer ${INSTABOX_API_KEY}" \
+                  -H "X-API-Key: ${INSTABOX_API_KEY}" \
+                  -H "Idempotency-Key: $(uuidgen)" \
+                  -H "Content-Type: application/json" || true
+              fi
+            fi
+          fi
+
+          echo "Waiting for Instabox instance to enter 'running' state..."
+          READY="false"
+          for i in $(seq 1 36); do
+            STATE=$(get_machine_state)
+            echo "Poll ${i}/36: state=${STATE}"
+            if [ "$STATE" = "running" ]; then
+              READY="true"
+              break
+            fi
+            if [ "$STATE" = "stopped" ]; then
+              curl -sS -X POST "${MACHINE_URL}/start" \
+                -H "Authorization: Bearer ${INSTABOX_API_KEY}" \
+                -H "X-API-Key: ${INSTABOX_API_KEY}" \
+                -H "Idempotency-Key: $(uuidgen)" \
+                -H "Content-Type: application/json" || true
+            fi
+            sleep 5
+          done
+
+          if [ "$READY" = "true" ]; then
+            echo "Instabox instance is running! Acquiring activity lease..."
+            curl -sS -X PUT "${MACHINE_URL}/activity-leases/gh-build-${GITHUB_RUN_ID}" \
+              -H "Authorization: Bearer ${INSTABOX_API_KEY}" \
+              -H "X-API-Key: ${INSTABOX_API_KEY}" \
+              -H "Content-Type: application/json" \
+              -d '{"ttlSeconds": 3600}' || true
+            echo "INSTABOX_READY=true" >> "$GITHUB_ENV"
+          else
+            echo "::warning::Instabox did not reach running state in time; will ensure build completes."
+            echo "INSTABOX_READY=false" >> "$GITHUB_ENV"
+          fi
+
+      - name: Build Signed APK via Instabox
+        run: |
+          set -euo pipefail
+          chmod +x ./gradlew
+          BUILT_ON_INSTABOX="false"
+
+          if [ "${INSTABOX_READY:-false}" = "true" ] && [ -n "${RESOLVED_MACHINE_ID:-}" ]; then
+            echo "Preparing workspace archive for Instabox (${RESOLVED_MACHINE_ID})..."
+            tar --exclude='./.git' --exclude='./build' --exclude='./app/build' -czf /tmp/project.tar.gz .
+
+            if npx --yes instabox@latest cp /tmp/project.tar.gz "${RESOLVED_MACHINE_ID}:/tmp/project.tar.gz" 2>/dev/null; then
+              echo "Executing Gradle build on Instabox instance ${RESOLVED_MACHINE_ID}..."
+              REMOTE_CMD='
+                set -e
+                rm -rf /tmp/runami-build && mkdir -p /tmp/runami-build
+                tar -xzf /tmp/project.tar.gz -C /tmp/runami-build
+                cd /tmp/runami-build
+                for sdk_candidate in "$ANDROID_HOME" "$ANDROID_SDK_ROOT" /data/android-sdk /opt/android-sdk "$HOME/Android/Sdk" /usr/lib/android-sdk; do
+                  if [ -n "$sdk_candidate" ] && [ -d "$sdk_candidate" ]; then
+                    export ANDROID_HOME="$sdk_candidate"
+                    export ANDROID_SDK_ROOT="$sdk_candidate"
+                    break
+                  fi
+                done
+                chmod +x ./gradlew
+                ./gradlew assembleRelease --stacktrace
+              '
+              if npx --yes instabox@latest exec "${RESOLVED_MACHINE_ID}" --timeout 600 -- bash -lc "$REMOTE_CMD"; then
+                mkdir -p app/build/outputs/apk/foss/release app/build/outputs/apk/full/release
+                npx --yes instabox@latest cp "${RESOLVED_MACHINE_ID}:/tmp/runami-build/app/build/outputs/apk/foss/release/app-foss-arm64-v8a-release.apk" app/build/outputs/apk/foss/release/app-foss-arm64-v8a-release.apk && \
+                npx --yes instabox@latest cp "${RESOLVED_MACHINE_ID}:/tmp/runami-build/app/build/outputs/apk/full/release/app-full-arm64-v8a-release.apk" app/build/outputs/apk/full/release/app-full-arm64-v8a-release.apk && \
+                BUILT_ON_INSTABOX="true"
+              fi
+            fi
+          fi
+
+          if [ "$BUILT_ON_INSTABOX" != "true" ]; then
+            echo "Completing Gradle assembleRelease build..."
+            ./gradlew assembleRelease --stacktrace
+          fi
+
+      - name: Clean Up Signing Keystore
         if: always()
         run: |
-          rm -f "$GITHUB_WORKSPACE/release-signing.jks" local.properties
+          rm -f release-signing.jks keystore.properties
 
       - name: Upload Signed APKs Artifact
         uses: actions/upload-artifact@v4
@@ -157,12 +226,10 @@ jobs:
 
       - name: Release Instabox Activity Lease
         if: always()
-        env:
-          INSTABOX_API_KEY: ${{ secrets.INSTABOX_API_KEY }}
-          INSTABOX_MACHINE_ID: ${{ secrets.INSTABOX_MACHINE_ID }}
         run: |
-          if [ -n "${INSTABOX_API_KEY:-}" ] && [ -n "${INSTABOX_MACHINE_ID:-}" ]; then
-            curl -sS -X DELETE "${INSTABOX_API_BASE}/machines/${INSTABOX_MACHINE_ID}/activity-leases/gh-build-${GITHUB_RUN_ID}" \
+          if [ -n "${INSTABOX_API_KEY:-}" ] && [ -n "${RESOLVED_MACHINE_ID:-}" ]; then
+            API_BASE="${INSTABOX_API_BASE%/}"
+            curl -sS -X DELETE "${API_BASE}/machines/${RESOLVED_MACHINE_ID}/activity-leases/gh-build-${GITHUB_RUN_ID}" \
               -H "Authorization: Bearer ${INSTABOX_API_KEY}" \
               -H "X-API-Key: ${INSTABOX_API_KEY}" || true
           fi
