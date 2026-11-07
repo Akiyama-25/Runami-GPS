@@ -60,4 +60,7 @@ class Xshare {
 
     val logLevel: String
         get() = pref().getString("log_level", "ERROR") ?: "ERROR"
+
+    val logSessionResetTimestamp: Long
+        get() = pref().getLong("log_session_reset_time", 0L)
 }

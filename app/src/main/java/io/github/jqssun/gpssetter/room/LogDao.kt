@@ -27,6 +27,12 @@ interface LogDao {
     @Query("DELETE FROM log_entries WHERE id NOT IN (SELECT id FROM log_entries ORDER BY timestamp DESC, id DESC LIMIT :maxCount)")
     fun trimOldLogsSync(maxCount: Int = 1500)
 
+    @Query("DELETE FROM log_entries WHERE timestamp < :minTimestamp")
+    fun deleteLogsBeforeSync(minTimestamp: Long)
+
     @Query("DELETE FROM log_entries")
     suspend fun clearAllLogs()
+
+    @Query("DELETE FROM log_entries")
+    fun clearAllLogsSync()
 }

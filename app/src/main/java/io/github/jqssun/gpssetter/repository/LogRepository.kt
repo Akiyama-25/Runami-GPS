@@ -33,6 +33,14 @@ class LogRepository @Inject constructor(
         logDao.trimOldLogsSync(1500)
     }
 
+    fun deleteLogsBeforeSync(minTimestamp: Long) {
+        logDao.deleteLogsBeforeSync(minTimestamp)
+    }
+
+    fun clearAllLogsSync() {
+        logDao.clearAllLogsSync()
+    }
+
     @WorkerThread
     suspend fun clearAllLogs() {
         logDao.clearAllLogs()

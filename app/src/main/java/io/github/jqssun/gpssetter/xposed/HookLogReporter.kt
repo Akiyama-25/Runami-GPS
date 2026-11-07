@@ -183,6 +183,8 @@ object HookLogReporter {
         }
     }
 
+    private val xshare = Xshare()
+
     private fun flushLogsToHost(includeRecentHistory: Boolean) {
         val appContext = resolveContext()
         if (appContext == null) {
@@ -190,6 +192,17 @@ object HookLogReporter {
                 scheduleDelayedRetry()
             }
             return
+        }
+
+        val bootTimeMs = System.currentTimeMillis() - android.os.SystemClock.elapsedRealtime()
+        val resetTimeMs = runCatching {
+            xshare.reload()
+            xshare.logSessionResetTimestamp
+        }.getOrDefault(0L)
+        val minValidTimestamp = maxOf(bootTimeMs, resetTimeMs)
+        if (minValidTimestamp > 0L) {
+            logQueue.removeIf { it.timestamp < minValidTimestamp }
+            recentHistory.removeIf { it.timestamp < minValidTimestamp }
         }
 
         val sourceList = if (includeRecentHistory) {

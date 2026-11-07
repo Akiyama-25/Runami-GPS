@@ -23,6 +23,9 @@ object PrefManager {
     private const val UPDATE_CHANNEL = "update_channel"
     private const val ENABLE_JOYSTICK = "joystick_enabled"
     private const val LOG_LEVEL = "log_level"
+    private const val LOG_SESSION_SIGNATURE = "log_session_signature"
+    private const val LOG_SESSION_BOOT_TIME = "log_session_boot_time"
+    private const val LOG_SESSION_RESET_TIME = "log_session_reset_time"
 
     private val pref: SharedPreferences by lazy {
         try {
@@ -89,6 +92,25 @@ object PrefManager {
         get() = pref.getString(LOG_LEVEL, "ERROR") ?: "ERROR"
         set(value) {
             pref.edit().putString(LOG_LEVEL, value).apply()
+            makeWorldReadable()
+        }
+
+    var logSessionSignature: String
+        get() = pref.getString(LOG_SESSION_SIGNATURE, "") ?: ""
+        set(value) {
+            pref.edit().putString(LOG_SESSION_SIGNATURE, value).commit()
+        }
+
+    var logSessionBootTimeMs: Long
+        get() = pref.getLong(LOG_SESSION_BOOT_TIME, 0L)
+        set(value) {
+            pref.edit().putLong(LOG_SESSION_BOOT_TIME, value).commit()
+        }
+
+    var logSessionResetTimestamp: Long
+        get() = pref.getLong(LOG_SESSION_RESET_TIME, 0L)
+        set(value) {
+            pref.edit().putLong(LOG_SESSION_RESET_TIME, value).commit()
             makeWorldReadable()
         }
 
