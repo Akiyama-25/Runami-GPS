@@ -67,8 +67,8 @@
     <string name="check_update_summary">Automatically check the latest version from GitHub</string>
     <string name="enable_joystick">Use joystick</string>
     <string name="enable_joystick_summary">Control your location with a joystick (experimental)</string>
-    <string name="advanced_hook">Hook system location</string>
-    <string name="advanced_summary">Enable enhanced GNSS satellite status spoofing</string>
+    <string name="advanced_hook">深度底层 Binder &amp; GNSS 伪装（免重启）</string>
+    <string name="advanced_summary">在目标进程内拦截 ILocationManager Binder 通信与卫星状态，无需勾选系统框架或重启手机</string>
     <string name="random_position">Random location</string>
     <string name="random_position_summary">Use a random location around the set location</string>
     <string name="drawer_open">Open</string>

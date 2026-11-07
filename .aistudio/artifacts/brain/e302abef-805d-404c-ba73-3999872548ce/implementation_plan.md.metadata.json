@@ -1,6 +1,6 @@
 {
-  "summary": "GPS Setter 定位标识初始展示修复、活跃状态实时位置热更新及目标应用进程级深度 Hook 隔离方案实现计划",
-  "updatedAt": "2026-11-06T12:23:19.196352466Z",
+  "summary": "Implementation plan for replacing System Framework (system_server) hooks with in-process deep Binder & AIDL Stub/Proxy interception so Runami GPS works without checking System Framework and without rebooting the device.",
+  "updatedAt": "2026-11-07T00:13:37.352837733Z",
   "requestFeedback": true,
   "userFacing": true
 }

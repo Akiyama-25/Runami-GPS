@@ -67,8 +67,12 @@ object LocationHook {
 
     private val hookedListenerClasses = Collections.newSetFromMap(ConcurrentHashMap<Class<*>, Boolean>())
     private val hookedGmsCallbackClasses = Collections.newSetFromMap(ConcurrentHashMap<Class<*>, Boolean>())
+    private val hookedBinderListenerClasses = Collections.newSetFromMap(ConcurrentHashMap<Class<*>, Boolean>())
+    private val hookedBinderCallbackClasses = Collections.newSetFromMap(ConcurrentHashMap<Class<*>, Boolean>())
+    private val hookedGnssCallbackClasses = Collections.newSetFromMap(ConcurrentHashMap<Class<*>, Boolean>())
 
     private val activeListeners = Collections.synchronizedMap(WeakHashMap<LocationListener, String>())
+    private val activeBinderListeners = Collections.synchronizedMap(WeakHashMap<Any, String>())
     private val activeGmsCallbacks = Collections.synchronizedMap(WeakHashMap<Any, Boolean>())
 
     private val mainHandler by lazy { Handler(Looper.getMainLooper()) }
@@ -89,6 +93,7 @@ object LocationHook {
                 XposedBridge.log("GPS Setter live ticker error: $t")
             } finally {
                 val hasActive = synchronized(activeListeners) { activeListeners.isNotEmpty() } ||
+                    synchronized(activeBinderListeners) { activeBinderListeners.isNotEmpty() } ||
                     synchronized(activeGmsCallbacks) { activeGmsCallbacks.isNotEmpty() }
                 if (hasActive) {
                     mainHandler.postDelayed(this, 1000L)
@@ -123,6 +128,41 @@ object LocationHook {
                         packageName = currentHookedPkg,
                         action = "LocationListener.onLocationChanged (实时推送)",
                         details = "provider=$provider -> 伪装位置 ${formatCoord()}",
+                        isSpoofed = true,
+                        throttleMs = 3000L
+                    )
+                }
+            }
+        }
+
+        val binderSnapshot = synchronized(activeBinderListeners) {
+            activeBinderListeners.entries.mapNotNull { entry ->
+                entry.key?.let { it to (entry.value ?: LocationManager.GPS_PROVIDER) }
+            }
+        }
+        for ((binderListener, provider) in binderSnapshot) {
+            runCatching {
+                val loc = createSpoofedLocation(null, provider)
+                val methods = binderListener.javaClass.declaredMethods.filter { it.name == "onLocationChanged" }
+                for (m in methods) {
+                    m.isAccessible = true
+                    val paramTypes = m.parameterTypes
+                    if (paramTypes.size == 2 && List::class.java.isAssignableFrom(paramTypes[0])) {
+                        m.invoke(binderListener, listOf(loc), null)
+                        break
+                    } else if (paramTypes.size == 1 && Location::class.java.isAssignableFrom(paramTypes[0])) {
+                        m.invoke(binderListener, loc)
+                        break
+                    } else if (paramTypes.size == 1 && List::class.java.isAssignableFrom(paramTypes[0])) {
+                        m.invoke(binderListener, listOf(loc))
+                        break
+                    }
+                }
+                if (currentHookedPkg.isNotEmpty()) {
+                    HookLogReporter.recordLocationRequest(
+                        packageName = currentHookedPkg,
+                        action = "[Binder] ILocationListener.onLocationChanged (实时推送)",
+                        details = "provider=$provider -> 底层AIDL推送伪装位置 ${formatCoord()}",
                         isSpoofed = true,
                         throttleMs = 3000L
                     )
@@ -211,12 +251,24 @@ object LocationHook {
     private fun clearMockFlag(location: Location) {
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                HiddenApiBypass.invoke(
-                    Location::class.java,
-                    location,
-                    "setIsFromMockProvider",
-                    false
-                )
+                runCatching {
+                    HiddenApiBypass.invoke(
+                        Location::class.java,
+                        location,
+                        "setIsFromMockProvider",
+                        false
+                    )
+                }
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    runCatching {
+                        HiddenApiBypass.invoke(
+                            Location::class.java,
+                            location,
+                            "setMock",
+                            false
+                        )
+                    }
+                }
             } else {
                 XposedHelpers.callMethod(location, "setIsFromMockProvider", false)
             }
@@ -302,7 +354,7 @@ object LocationHook {
         val pkgName = lpparam.packageName ?: return
 
         // Strictly scope hooks to LSPosed-checked target applications only.
-        // Never mutate global system_server state so unchecked apps always receive real locations.
+        // Never touch system_server so no device reboot is ever required and unchecked apps stay 100% isolated.
         if (ignorePkg.contains(pkgName)) {
             return
         }
@@ -311,21 +363,367 @@ object LocationHook {
         val active = isSpoofingActive(pkgName)
         HookLogReporter.recordLocationRequest(
             packageName = pkgName,
-            action = "HookEntry.initHooks (注入目标进程)",
+            action = "HookEntry.initHooks (免重启进程内注入)",
             details = if (active) {
-                "已挂载定位拦截钩子 · 当前伪装开启 ${formatCoord()}"
+                "已挂载 Binder/AIDL 与 SDK 双层拦截钩子 · 当前伪装开启 ${formatCoord()}"
             } else {
-                "已挂载定位拦截钩子 · 当前伪装未开启（透传真实位置）"
+                "已挂载 Binder/AIDL 与 SDK 双层拦截钩子 · 当前伪装未开启（透传真实位置）"
             },
             isSpoofed = active,
             throttleMs = 0L
         )
 
+        // Layer 1: Deep In-Process Binder Proxy & AIDL Transport Stubs (Replaces System Framework hook without reboot!)
+        hookBinderLocationManagerProxy(lpparam, pkgName)
+        hookFrameworkLocationTransports(lpparam, pkgName)
+
+        // Layer 2: SDK API & GMS Fused Location Hooks
         hookLocationClass(lpparam, pkgName)
         hookLocationResultClass(lpparam, pkgName)
         hookLocationManagerClass(lpparam, pkgName)
         hookGmsLocationClasses(lpparam, pkgName)
         hookGnssAndMockDetection(lpparam, pkgName)
+    }
+
+    /**
+     * Layer 1A: Intercepts android.location.ILocationManager$Stub$Proxy directly inside the target app process.
+     * Every Binder IPC call from the target app to system_server's LocationManagerService goes through this proxy.
+     */
+    private fun hookBinderLocationManagerProxy(lpparam: XC_LoadPackage.LoadPackageParam, pkgName: String) {
+        val proxyClass = XposedHelpers.findClassIfExists(
+            "android.location.ILocationManager\$Stub\$Proxy",
+            lpparam.classLoader
+        ) ?: return
+
+        val iLocationListenerClass = XposedHelpers.findClassIfExists(
+            "android.location.ILocationListener",
+            lpparam.classLoader
+        )
+        val iLocationCallbackClass = XposedHelpers.findClassIfExists(
+            "android.location.ILocationCallback",
+            lpparam.classLoader
+        )
+        val iGnssStatusListenerClass = XposedHelpers.findClassIfExists(
+            "android.location.IGnssStatusListener",
+            lpparam.classLoader
+        )
+
+        for (method in proxyClass.declaredMethods) {
+            when (method.name) {
+                "getLastLocation", "getLastKnownLocation" -> {
+                    XposedBridge.hookMethod(
+                        method,
+                        object : XC_MethodHook() {
+                            override fun afterHookedMethod(param: MethodHookParam) {
+                                val active = isSpoofingActive(pkgName)
+                                val provider = (param.args.firstOrNull { it is String } as? String)
+                                    ?: LocationManager.GPS_PROVIDER
+                                if (active) {
+                                    val origin = param.result as? Location
+                                    param.result = createSpoofedLocation(origin, provider)
+                                }
+                                HookLogReporter.recordLocationRequest(
+                                    packageName = pkgName,
+                                    action = "[Binder] ILocationManager.${method.name}",
+                                    details = if (active) {
+                                        "IPC代理拦截 provider=$provider -> 返回伪装位置 ${formatCoord()}"
+                                    } else {
+                                        "IPC代理透传 provider=$provider -> 返回系统真实位置"
+                                    },
+                                    isSpoofed = active,
+                                    throttleMs = 800L
+                                )
+                            }
+                        }
+                    )
+                }
+                "getCurrentLocation" -> {
+                    XposedBridge.hookMethod(
+                        method,
+                        object : XC_MethodHook() {
+                            override fun beforeHookedMethod(param: MethodHookParam) {
+                                val provider = (param.args.firstOrNull { it is String } as? String)
+                                    ?: LocationManager.GPS_PROVIDER
+                                val callbackObj = if (iLocationCallbackClass != null) {
+                                    param.args.firstOrNull {
+                                        it != null && iLocationCallbackClass.isAssignableFrom(it.javaClass)
+                                    }
+                                } else {
+                                    null
+                                }
+                                if (callbackObj != null) {
+                                    hookBinderLocationCallbackIfNeeded(callbackObj.javaClass, pkgName)
+                                }
+
+                                val active = isSpoofingActive(pkgName)
+                                HookLogReporter.recordLocationRequest(
+                                    packageName = pkgName,
+                                    action = "[Binder] ILocationManager.getCurrentLocation",
+                                    details = if (active) {
+                                        "IPC代理拦截 provider=$provider -> 注入 AIDL ILocationCallback 伪装坐标 ${formatCoord()}"
+                                    } else {
+                                        "IPC代理透传 provider=$provider -> 请求真实位置"
+                                    },
+                                    isSpoofed = active,
+                                    throttleMs = 500L
+                                )
+
+                                if (active && callbackObj != null) {
+                                    val spoofed = createSpoofedLocation(null, provider)
+                                    mainHandler.post {
+                                        runCatching {
+                                            XposedHelpers.callMethod(callbackObj, "onLocation", spoofed)
+                                        }
+                                    }
+                                    param.result = null
+                                }
+                            }
+                        }
+                    )
+                }
+                "registerLocationListener", "requestLocationUpdates" -> {
+                    XposedBridge.hookMethod(
+                        method,
+                        object : XC_MethodHook() {
+                            override fun beforeHookedMethod(param: MethodHookParam) {
+                                val provider = (param.args.firstOrNull { it is String } as? String)
+                                    ?: LocationManager.GPS_PROVIDER
+                                val binderListener = if (iLocationListenerClass != null) {
+                                    param.args.firstOrNull {
+                                        it != null && iLocationListenerClass.isAssignableFrom(it.javaClass)
+                                    }
+                                } else {
+                                    null
+                                }
+
+                                val active = isSpoofingActive(pkgName)
+                                HookLogReporter.recordLocationRequest(
+                                    packageName = pkgName,
+                                    action = "[Binder] ILocationManager.${method.name}",
+                                    details = if (active) {
+                                        "IPC注册监听 provider=$provider, transport=${binderListener?.javaClass?.simpleName ?: "PendingIntent"} -> 挂载 AIDL Stub 拦截 ${formatCoord()}"
+                                    } else {
+                                        "IPC注册监听 provider=$provider -> 未开启伪装，透传系统回调"
+                                    },
+                                    isSpoofed = active,
+                                    throttleMs = 500L
+                                )
+
+                                if (binderListener != null) {
+                                    hookBinderLocationListenerIfNeeded(binderListener.javaClass, pkgName)
+                                    activeBinderListeners[binderListener] = provider
+                                    ensureLiveTickerRunning()
+                                }
+                            }
+                        }
+                    )
+                }
+                "unregisterLocationListener", "removeUpdates" -> {
+                    XposedBridge.hookMethod(
+                        method,
+                        object : XC_MethodHook() {
+                            override fun beforeHookedMethod(param: MethodHookParam) {
+                                val binderListener = if (iLocationListenerClass != null) {
+                                    param.args.firstOrNull {
+                                        it != null && iLocationListenerClass.isAssignableFrom(it.javaClass)
+                                    }
+                                } else {
+                                    null
+                                }
+                                if (binderListener != null) {
+                                    activeBinderListeners.remove(binderListener)
+                                }
+                            }
+                        }
+                    )
+                }
+                "isProviderEnabled", "isProviderEnabledForUser" -> {
+                    XposedBridge.hookMethod(
+                        method,
+                        object : XC_MethodHook() {
+                            override fun beforeHookedMethod(param: MethodHookParam) {
+                                if (!isSpoofingActive(pkgName) || !isAdvancedHookCache) return
+                                val provider = param.args.firstOrNull() as? String ?: return
+                                if (provider == LocationManager.GPS_PROVIDER ||
+                                    provider == LocationManager.NETWORK_PROVIDER ||
+                                    provider == "fused"
+                                ) {
+                                    param.result = true
+                                }
+                            }
+                        }
+                    )
+                }
+                "getProviders", "getAllProviders" -> {
+                    XposedBridge.hookMethod(
+                        method,
+                        object : XC_MethodHook() {
+                            override fun afterHookedMethod(param: MethodHookParam) {
+                                if (!isSpoofingActive(pkgName) || !isAdvancedHookCache) return
+                                @Suppress("UNCHECKED_CAST")
+                                val orig = (param.result as? List<String>)?.toMutableList() ?: mutableListOf()
+                                if (!orig.contains(LocationManager.GPS_PROVIDER)) {
+                                    orig.add(LocationManager.GPS_PROVIDER)
+                                }
+                                if (!orig.contains(LocationManager.NETWORK_PROVIDER)) {
+                                    orig.add(LocationManager.NETWORK_PROVIDER)
+                                }
+                                param.result = orig
+                            }
+                        }
+                    )
+                }
+                "registerGnssStatusCallback" -> {
+                    XposedBridge.hookMethod(
+                        method,
+                        object : XC_MethodHook() {
+                            override fun beforeHookedMethod(param: MethodHookParam) {
+                                if (iGnssStatusListenerClass == null) return
+                                val gnssCallback = param.args.firstOrNull {
+                                    it != null && iGnssStatusListenerClass.isAssignableFrom(it.javaClass)
+                                } ?: return
+                                hookGnssStatusListenerIfNeeded(gnssCallback.javaClass, pkgName)
+                                val active = isSpoofingActive(pkgName)
+                                HookLogReporter.recordLocationRequest(
+                                    packageName = pkgName,
+                                    action = "[Binder] ILocationManager.registerGnssStatusCallback",
+                                    details = "IPC注册卫星状态监听 ${gnssCallback.javaClass.simpleName} -> ${if (active && isAdvancedHookCache) "已挂载 GNSS 卫星伪装" else "透传卫星状态"}",
+                                    isSpoofed = active && isAdvancedHookCache,
+                                    throttleMs = 1000L
+                                )
+                            }
+                        }
+                    )
+                }
+            }
+        }
+    }
+
+    /**
+     * Layer 1B: Proactively hooks Android framework's internal AIDL Stub transport classes inside the target process.
+     */
+    private fun hookFrameworkLocationTransports(lpparam: XC_LoadPackage.LoadPackageParam, pkgName: String) {
+        val transportClassNames = listOf(
+            "android.location.LocationManager\$LocationListenerTransport",
+            "android.location.LocationManager\$ListenerTransport"
+        )
+        for (name in transportClassNames) {
+            val clazz = XposedHelpers.findClassIfExists(name, lpparam.classLoader)
+            if (clazz != null) {
+                hookBinderLocationListenerIfNeeded(clazz, pkgName)
+            }
+        }
+
+        val currentLocTransportNames = listOf(
+            "android.location.LocationManager\$GetCurrentLocationTransport"
+        )
+        for (name in currentLocTransportNames) {
+            val clazz = XposedHelpers.findClassIfExists(name, lpparam.classLoader)
+            if (clazz != null) {
+                hookBinderLocationCallbackIfNeeded(clazz, pkgName)
+            }
+        }
+
+        val gnssTransportNames = listOf(
+            "android.location.LocationManager\$GnssStatusTransport"
+        )
+        for (name in gnssTransportNames) {
+            val clazz = XposedHelpers.findClassIfExists(name, lpparam.classLoader)
+            if (clazz != null) {
+                hookGnssStatusListenerIfNeeded(clazz, pkgName)
+            }
+        }
+    }
+
+    private fun hookBinderLocationListenerIfNeeded(clazz: Class<*>, pkgName: String) {
+        if (!hookedBinderListenerClasses.add(clazz)) return
+
+        for (method in clazz.declaredMethods) {
+            if (method.name == "onLocationChanged") {
+                XposedBridge.hookMethod(
+                    method,
+                    object : XC_MethodHook() {
+                        override fun beforeHookedMethod(param: MethodHookParam) {
+                            val active = isSpoofingActive(pkgName)
+                            if (!active) return
+                            val firstArg = param.args.firstOrNull() ?: return
+                            if (firstArg is Location) {
+                                amendLocationInPlace(firstArg)
+                            } else if (firstArg is List<*>) {
+                                val locs = firstArg.filterIsInstance<Location>()
+                                if (locs.isNotEmpty()) {
+                                    locs.forEach { amendLocationInPlace(it) }
+                                } else {
+                                    param.args[0] = listOf(createSpoofedLocation())
+                                }
+                            }
+                            HookLogReporter.recordLocationRequest(
+                                packageName = pkgName,
+                                action = "[Binder] ILocationListener.Stub.onLocationChanged",
+                                details = "AIDL Stub 拦截系统跨进程回调 (${clazz.simpleName}) -> 覆写为伪装位置 ${formatCoord()}",
+                                isSpoofed = true,
+                                throttleMs = 2000L
+                            )
+                        }
+                    }
+                )
+            }
+        }
+    }
+
+    private fun hookBinderLocationCallbackIfNeeded(clazz: Class<*>, pkgName: String) {
+        if (!hookedBinderCallbackClasses.add(clazz)) return
+
+        for (method in clazz.declaredMethods) {
+            if (method.name == "onLocation") {
+                XposedBridge.hookMethod(
+                    method,
+                    object : XC_MethodHook() {
+                        override fun beforeHookedMethod(param: MethodHookParam) {
+                            if (!isSpoofingActive(pkgName)) return
+                            val loc = param.args.firstOrNull() as? Location
+                            if (loc != null) {
+                                amendLocationInPlace(loc)
+                            } else if (param.args.isNotEmpty()) {
+                                param.args[0] = createSpoofedLocation()
+                            }
+                            HookLogReporter.recordLocationRequest(
+                                packageName = pkgName,
+                                action = "[Binder] ILocationCallback.Stub.onLocation",
+                                details = "AIDL Stub 拦截单次定位回调 (${clazz.simpleName}) -> 覆写为伪装位置 ${formatCoord()}",
+                                isSpoofed = true,
+                                throttleMs = 1000L
+                            )
+                        }
+                    }
+                )
+            }
+        }
+    }
+
+    private fun hookGnssStatusListenerIfNeeded(clazz: Class<*>, pkgName: String) {
+        if (!hookedGnssCallbackClasses.add(clazz)) return
+
+        for (method in clazz.declaredMethods) {
+            if (method.name == "onSvStatusChanged") {
+                XposedBridge.hookMethod(
+                    method,
+                    object : XC_MethodHook() {
+                        override fun beforeHookedMethod(param: MethodHookParam) {
+                            if (isSpoofingActive(pkgName) && isAdvancedHookCache) {
+                                HookLogReporter.recordLocationRequest(
+                                    packageName = pkgName,
+                                    action = "[Binder] IGnssStatusListener.Stub.onSvStatusChanged",
+                                    details = "AIDL Stub 拦截 GNSS 卫星状态回调 (${clazz.simpleName}) -> 增强卫星信号伪装",
+                                    isSpoofed = true,
+                                    throttleMs = 5000L
+                                )
+                            }
+                        }
+                    }
+                )
+            }
+        }
     }
 
     private fun hookLocationClass(lpparam: XC_LoadPackage.LoadPackageParam, pkgName: String) {
@@ -615,6 +1013,23 @@ object LocationHook {
                                         isSpoofed = isSpoofingActive(pkgName),
                                         throttleMs = 300L
                                     )
+                                }
+                            }
+                        }
+                    )
+                }
+                "isProviderEnabled", "isProviderEnabledForUser" -> {
+                    XposedBridge.hookMethod(
+                        method,
+                        object : XC_MethodHook() {
+                            override fun beforeHookedMethod(param: MethodHookParam) {
+                                if (!isSpoofingActive(pkgName) || !isAdvancedHookCache) return
+                                val provider = param.args.firstOrNull() as? String ?: return
+                                if (provider == LocationManager.GPS_PROVIDER ||
+                                    provider == LocationManager.NETWORK_PROVIDER ||
+                                    provider == "fused"
+                                ) {
+                                    param.result = true
                                 }
                             }
                         }
