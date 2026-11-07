@@ -284,10 +284,6 @@ abstract class BaseMapActivity : AppCompatActivity() {
         viewModel.updateXposedState()
         AppLogger.requestFlushFromHookedApps(this)
         drawerBackCallback.isEnabled = binding.container.isDrawerOpen(GravityCompat.START)
-        if (lastCheckedChannel != PrefManager.updateChannel) {
-            lastCheckedChannel = PrefManager.updateChannel
-            viewModel.refreshUpdateCheck()
-        }
     }
 
     protected fun aboutDialog() {

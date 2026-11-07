@@ -23,13 +23,11 @@
             android:entryValues="@array/map_value"
             android:defaultValue="1" />
 
-        <SwitchPreferenceCompat
+        <Preference
             android:title="@string/check_update"
             android:summary="@string/check_update_summary"
             android:icon="@drawable/ic_update"
-            android:widgetLayout="@layout/preference_switch_widget"
-            android:key="update_disabled"
-            android:defaultValue="true" />
+            android:key="check_update_now" />
 
         <DropDownPreference
             android:title="@string/update_channel"

@@ -14,20 +14,32 @@ import android.widget.EditText
 import android.widget.Toast
 import androidx.activity.SystemBarStyle
 import androidx.activity.enableEdgeToEdge
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
+import androidx.appcompat.widget.AppCompatButton
+import androidx.fragment.app.activityViewModels
+import androidx.lifecycle.lifecycleScope
 import androidx.preference.DropDownPreference
 import androidx.preference.EditTextPreference
 import androidx.preference.Preference
 import androidx.preference.PreferenceDataStore
 import androidx.preference.PreferenceFragmentCompat
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.google.android.material.progressindicator.LinearProgressIndicator
+import dagger.hilt.android.AndroidEntryPoint
+import io.github.jqssun.gpssetter.BuildConfig
 import io.github.jqssun.gpssetter.R
 import io.github.jqssun.gpssetter.databinding.ActivitySettingsBinding
+import io.github.jqssun.gpssetter.ui.viewmodel.MainViewModel
+import io.github.jqssun.gpssetter.update.UpdateChecker
 import io.github.jqssun.gpssetter.utils.AppLogger
 import io.github.jqssun.gpssetter.utils.JoystickService
 import io.github.jqssun.gpssetter.utils.PrefManager
 import io.github.jqssun.gpssetter.utils.ext.showToast
+import kotlinx.coroutines.launch
 
+@AndroidEntryPoint
 class ActivitySettings : AppCompatActivity() {
 
     private val binding by lazy {
@@ -113,11 +125,31 @@ class ActivitySettings : AppCompatActivity() {
         return super.onOptionsItemSelected(item)
     }
 
+    @AndroidEntryPoint
     class SettingsPreferenceFragment : PreferenceFragmentCompat() {
+
+        private val viewModel by activityViewModels<MainViewModel>()
+        private var updateDialogInstance: AlertDialog? = null
 
         override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
             preferenceManager?.preferenceDataStore = SettingPreferenceDataStore()
             setPreferencesFromResource(R.xml.preferences, rootKey)
+
+            findPreference<Preference>("check_update_now")?.setOnPreferenceClickListener { pref ->
+                val ctx = requireContext()
+                pref.isEnabled = false
+                ctx.showToast(ctx.getString(R.string.checking_for_updates))
+                viewModel.manualCheckUpdates { availableUpdate ->
+                    if (!isAdded) return@manualCheckUpdates
+                    pref.isEnabled = true
+                    if (availableUpdate != null) {
+                        showUpdateDialog(availableUpdate)
+                    } else {
+                        ctx.showToast("${ctx.getString(R.string.already_latest_version)} (${BuildConfig.VERSION_NAME})")
+                    }
+                }
+                true
+            }
 
             findPreference<EditTextPreference>("accuracy_level")?.let {
                 it.summary = "${PrefManager.accuracy} m"
@@ -168,6 +200,58 @@ class ActivitySettings : AppCompatActivity() {
                     true
                 }
             }
+        }
+
+        private fun showUpdateDialog(availableUpdate: UpdateChecker.Update) {
+            val ctx = requireContext()
+            updateDialogInstance?.dismiss()
+            updateDialogInstance = MaterialAlertDialogBuilder(ctx)
+                .setTitle(R.string.update_available)
+                .setMessage(availableUpdate.changelog)
+                .setPositiveButton(getString(R.string.update_button)) { _, _ ->
+                    val view = layoutInflater.inflate(R.layout.update_dialog, null)
+                    val progress = view.findViewById<LinearProgressIndicator>(R.id.update_download_progress)
+                    val cancel = view.findViewById<AppCompatButton>(R.id.update_download_cancel)
+                    val downloadDialog = MaterialAlertDialogBuilder(ctx)
+                        .setView(view)
+                        .create()
+                    cancel.setOnClickListener {
+                        viewModel.cancelDownload(ctx)
+                        downloadDialog.dismiss()
+                    }
+                    viewLifecycleOwner.lifecycleScope.launch {
+                        viewModel.downloadState.collect { state ->
+                            when (state) {
+                                is MainViewModel.State.Downloading -> {
+                                    if (state.progress > 0) {
+                                        progress.isIndeterminate = false
+                                        progress.progress = state.progress
+                                    }
+                                }
+                                is MainViewModel.State.Done -> {
+                                    viewModel.openPackageInstaller(ctx, state.fileUri)
+                                    viewModel.clearUpdate()
+                                    downloadDialog.dismiss()
+                                }
+                                is MainViewModel.State.Failed -> {
+                                    Toast.makeText(
+                                        ctx,
+                                        R.string.bs_update_download_failed,
+                                        Toast.LENGTH_LONG
+                                    ).show()
+                                    downloadDialog.dismiss()
+                                }
+                                else -> {}
+                            }
+                        }
+                    }
+                    viewModel.startDownload(ctx, availableUpdate)
+                    downloadDialog.show()
+                }
+                .setNegativeButton(android.R.string.cancel) { _, _ ->
+                    viewModel.clearUpdate()
+                }
+                .show()
         }
 
         private fun isJoystickRunning(): Boolean {

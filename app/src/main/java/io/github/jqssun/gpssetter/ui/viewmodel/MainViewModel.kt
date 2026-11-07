@@ -55,6 +55,11 @@ class MainViewModel @Inject constructor(
     @ApplicationContext private val appContext: Context
 ) : ViewModel() {
 
+    companion object {
+        @Volatile
+        private var hasAutoCheckedOnStartup: Boolean = false
+    }
+
     val getLat: Double
         get() = prefManger.getLat
     val getLng: Double
@@ -131,11 +136,18 @@ class MainViewModel @Inject constructor(
     val update = _update.asStateFlow()
 
     init {
-        refreshUpdateCheck()
+        if (!hasAutoCheckedOnStartup) {
+            hasAutoCheckedOnStartup = true
+            refreshUpdateCheck()
+        }
     }
 
     fun refreshUpdateCheck() {
         viewModelScope.launch {
+            AppLogger.logApp(
+                action = "UpdateChecker.autoCheck (启动自动检查更新)",
+                details = "当前版本=${BuildConfig.VERSION_NAME}, 更新通道=${prefManger.updateChannel}"
+            )
             withContext(Dispatchers.IO) {
                 checkUpdates.clearCachedDownloads(appContext)
             }
@@ -147,6 +159,33 @@ class MainViewModel @Inject constructor(
                         details = "通道=${prefManger.updateChannel}, 最新版本=${it.name}"
                     )
                 }
+            }
+        }
+    }
+
+    fun manualCheckUpdates(onResult: (UpdateChecker.Update?) -> Unit) {
+        viewModelScope.launch {
+            AppLogger.logApp(
+                action = "UpdateChecker.manualCheck (手动触发检查更新)",
+                details = "当前版本=${BuildConfig.VERSION_NAME}, 更新通道=${prefManger.updateChannel}"
+            )
+            withContext(Dispatchers.IO) {
+                checkUpdates.clearCachedDownloads(appContext)
+            }
+            checkUpdates.getLatestRelease().collect { result ->
+                _update.emit(result)
+                if (result != null) {
+                    AppLogger.logApp(
+                        action = "UpdateChecker.getLatestRelease (检测到新版本)",
+                        details = "通道=${prefManger.updateChannel}, 最新版本=${result.name}"
+                    )
+                } else {
+                    AppLogger.logApp(
+                        action = "UpdateChecker.getLatestRelease (已是最新版本)",
+                        details = "通道=${prefManger.updateChannel}, 当前版本=${BuildConfig.VERSION_NAME}"
+                    )
+                }
+                onResult(result)
             }
         }
     }

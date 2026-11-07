@@ -21,11 +21,6 @@ class UpdateChecker @Inject constructor(private val apiResponse: GitHubService) 
 
     fun getLatestRelease() = callbackFlow {
         withContext(Dispatchers.IO) {
-            if (!PrefManager.isUpdateDisabled) {
-                trySend(null)
-                return@withContext
-            }
-
             val channel = PrefManager.updateChannel
             if (channel == "action") {
                 val update = checkActionChannelUpdate()
@@ -83,13 +78,14 @@ class UpdateChecker @Inject constructor(private val apiResponse: GitHubService) 
                 append("SHA: $shortSha")
             }
         }
-        val downloadUrl = "$REPO_RELEASES_URL/download/$remoteActionTag/$DEFAULT_APK_NAME"
+        val assetFileName = "Runami-GPS-$remoteActionTag.apk"
+        val downloadUrl = "$REPO_RELEASES_URL/download/$remoteActionTag/$assetFileName"
         return Update(
             name = "Runami GPS $remoteActionTag",
             changelog = changelog,
             timestamp = latestRun.updatedAt ?: "",
             assetUrl = downloadUrl,
-            assetName = "Runami-GPS-$remoteActionTag.apk",
+            assetName = assetFileName,
             releaseUrl = latestRun.htmlUrl ?: REPO_RELEASES_URL
         )
     }
@@ -119,15 +115,16 @@ class UpdateChecker @Inject constructor(private val apiResponse: GitHubService) 
         val name = gitHubReleaseResponse.name?.takeIf { it.isNotBlank() } ?: currentTag
         val body = gitHubReleaseResponse.body?.takeIf { it.isNotBlank() } ?: "Update $currentTag available."
         val publishedAt = gitHubReleaseResponse.publishedAt ?: ""
+        val fallbackAssetName = "Runami-GPS-$currentTag.apk"
         val downloadUrl = asset?.browserDownloadUrl
-            ?: "$REPO_RELEASES_URL/download/$currentTag/$DEFAULT_APK_NAME"
+            ?: "$REPO_RELEASES_URL/download/$currentTag/$fallbackAssetName"
 
         return Update(
             name = name,
             changelog = body,
             timestamp = publishedAt,
             assetUrl = downloadUrl,
-            assetName = asset?.name ?: DEFAULT_APK_NAME,
+            assetName = asset?.name ?: fallbackAssetName,
             releaseUrl = releaseUrl
         )
     }
