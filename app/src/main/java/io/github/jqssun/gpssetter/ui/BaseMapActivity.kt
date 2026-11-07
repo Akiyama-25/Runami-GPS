@@ -526,7 +526,7 @@ abstract class BaseMapActivity : AppCompatActivity() {
                     }
                 }
             } else {
-                showToast("Turn on location")
+                showToast(getString(R.string.turn_on_location))
                 val intent = Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS)
                 startActivity(intent)
             }

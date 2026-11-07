@@ -18,6 +18,7 @@ object PrefManager {
     private const val ACCURACY_SETTING = "accuracy_level"
     private const val MAP_TYPE = "map_type"
     private const val DARK_THEME = "dark_theme"
+    private const val APP_LANGUAGE = "app_language"
     private const val DISABLE_UPDATE = "update_disabled"
     private const val UPDATE_CHANNEL = "update_channel"
     private const val ENABLE_JOYSTICK = "joystick_enabled"
@@ -66,6 +67,10 @@ object PrefManager {
     var darkTheme: Int
         get() = pref.getInt(DARK_THEME, AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
         set(value) = pref.edit().putInt(DARK_THEME, value).apply()
+
+    var appLanguage: String
+        get() = pref.getString(APP_LANGUAGE, "system") ?: "system"
+        set(value) = pref.edit().putString(APP_LANGUAGE, value).apply()
 
     var isUpdateDisabled: Boolean
         get() = pref.getBoolean(DISABLE_UPDATE, true)

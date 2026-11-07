@@ -1,11 +1,21 @@
 <PreferenceScreen xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:android="http://schemas.android.com/apk/res/android">
 
-
     <PreferenceCategory android:title="@string/preference_category_general">
 
         <DropDownPreference
+            android:defaultValue="system"
+            android:dialogTitle="@string/app_language"
+            android:entries="@array/language_texts"
+            android:entryValues="@array/language_values"
+            android:icon="@drawable/ic_language"
+            android:key="app_language"
+            android:summary="%s"
+            android:title="@string/app_language" />
+
+        <DropDownPreference
             android:defaultValue="-1"
+            android:dialogTitle="@string/dark_theme"
             android:entries="@array/theme_texts"
             android:entryValues="@array/theme_values"
             android:icon="@drawable/ic_dark_mode"
@@ -14,11 +24,11 @@
             android:title="@string/dark_theme" />
 
         <DropDownPreference
-            android:title="Map"
+            android:title="@string/map_type_title"
             android:summary="%s"
             android:icon="@drawable/ic_map_type"
             android:key="map_type"
-            android:dialogTitle="Map type"
+            android:dialogTitle="@string/map_type_title"
             android:entries="@array/map_type"
             android:entryValues="@array/map_value"
             android:defaultValue="1" />

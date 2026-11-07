@@ -5,6 +5,7 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
+import android.net.Uri
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
@@ -13,14 +14,17 @@ import android.view.MenuItem
 import android.view.View
 import androidx.activity.SystemBarStyle
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.FileProvider
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import dagger.hilt.android.AndroidEntryPoint
+import io.github.jqssun.gpssetter.BuildConfig
 import io.github.jqssun.gpssetter.R
 import io.github.jqssun.gpssetter.adapter.LogListAdapter
 import io.github.jqssun.gpssetter.databinding.ActivityLogBinding
@@ -29,7 +33,10 @@ import io.github.jqssun.gpssetter.ui.viewmodel.MainViewModel
 import io.github.jqssun.gpssetter.utils.AppLogger
 import io.github.jqssun.gpssetter.utils.PrefManager
 import io.github.jqssun.gpssetter.utils.ext.showToast
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -42,8 +49,16 @@ class LogActivity : AppCompatActivity() {
     private lateinit var logAdapter: LogListAdapter
 
     private var allLogsCache: List<LogEntry> = emptyList()
-    private var selectedCategory: String? = null // null = ALL, "APP", "LOCATION"
+    private var selectedCategory: String? = null
     private var searchQuery: String = ""
+
+    private val createLogFileLauncher = registerForActivityResult(
+        ActivityResultContracts.CreateDocument("text/plain")
+    ) { uri: Uri? ->
+        if (uri != null) {
+            saveLogsToUri(uri)
+        }
+    }
 
     companion object {
         private const val MENU_REFRESH = 1001
@@ -118,17 +133,18 @@ class LogActivity : AppCompatActivity() {
         val locCount = allLogsCache.count { it.category == LogEntry.CATEGORY_LOCATION }
         val spoofedCount = allLogsCache.count { it.category == LogEntry.CATEGORY_LOCATION && it.isSpoofed }
         val statusStr = if (PrefManager.isStarted) {
-            String.format(
-                Locale.US,
-                "伪装开启 (%.5f, %.5f)",
-                PrefManager.getLat,
-                PrefManager.getLng
-            )
+            getString(R.string.log_status_spoofing_on, PrefManager.getLat, PrefManager.getLng)
         } else {
-            "伪装未开启"
+            getString(R.string.log_status_spoofing_off)
         }
-        binding.logStatusSummary.text =
-            "状态: $statusStr | 总计: $total 条 (自身: $appCount · 定位请求: $locCount · 已伪装: $spoofedCount)"
+        binding.logStatusSummary.text = getString(
+            R.string.log_status_summary_format,
+            statusStr,
+            total,
+            appCount,
+            locCount,
+            spoofedCount
+        )
     }
 
     private fun applyFilters() {
@@ -154,18 +170,21 @@ class LogActivity : AppCompatActivity() {
         showToast(getString(R.string.log_copied))
     }
 
-    private fun shareLogs() {
-        val list = logAdapter.currentList
-        if (list.isEmpty()) {
-            showToast(getString(R.string.log_empty))
-            return
-        }
+    private fun buildLogFileContent(list: List<LogEntry>): String {
         val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.getDefault())
         val sb = StringBuilder()
-        sb.appendLine("=== Runami GPS 运行与定位请求日志 ===")
-        sb.appendLine("导出时间: ${sdf.format(Date())}")
-        sb.appendLine("当前伪装状态: ${if (PrefManager.isStarted) "开启 (${PrefManager.getLat}, ${PrefManager.getLng})" else "未开启"}")
-        sb.appendLine("----------------------------------------")
+        sb.appendLine("=== Runami GPS (${BuildConfig.VERSION_NAME}) Log File ===")
+        sb.appendLine("Exported: ${sdf.format(Date())}")
+        sb.appendLine(
+            "Spoofing: ${
+                if (PrefManager.isStarted) {
+                    "ACTIVE (${PrefManager.getLat}, ${PrefManager.getLng})"
+                } else {
+                    "INACTIVE"
+                }
+            }"
+        )
+        sb.appendLine("==========================================================")
         for (entry in list) {
             val tag = if (entry.category == LogEntry.CATEGORY_APP) {
                 "APP"
@@ -177,13 +196,98 @@ class LogActivity : AppCompatActivity() {
             sb.appendLine("[${sdf.format(Date(entry.timestamp))}] [$tag] [${entry.packageName}] ${entry.action}")
             sb.appendLine("  -> ${entry.details}")
         }
+        return sb.toString()
+    }
 
-        val shareIntent = Intent(Intent.ACTION_SEND).apply {
-            type = "text/plain"
-            putExtra(Intent.EXTRA_SUBJECT, "Runami GPS Logs")
-            putExtra(Intent.EXTRA_TEXT, sb.toString())
+    private fun defaultLogFileName(): String {
+        val fileTimeFormat = SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US)
+        return "Runami-GPS-${fileTimeFormat.format(Date())}.log"
+    }
+
+    private fun showExportLogOptions() {
+        val list = logAdapter.currentList
+        if (list.isEmpty()) {
+            showToast(getString(R.string.log_empty))
+            return
         }
-        startActivity(Intent.createChooser(shareIntent, getString(R.string.log_export)))
+        val options = arrayOf(
+            getString(R.string.log_export_save_file),
+            getString(R.string.log_export_share_file)
+        )
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.log_export)
+            .setItems(options) { _, which ->
+                when (which) {
+                    0 -> createLogFileLauncher.launch(defaultLogFileName())
+                    1 -> shareLogFileAttachment()
+                }
+            }
+            .show()
+    }
+
+    private fun saveLogsToUri(uri: Uri) {
+        val list = logAdapter.currentList
+        if (list.isEmpty()) {
+            showToast(getString(R.string.log_empty))
+            return
+        }
+        lifecycleScope.launch {
+            val success = withContext(Dispatchers.IO) {
+                runCatching {
+                    val content = buildLogFileContent(list)
+                    contentResolver.openOutputStream(uri)?.use { out ->
+                        out.write(content.toByteArray(Charsets.UTF_8))
+                        out.flush()
+                    } ?: error("Failed to open output stream")
+                }.isSuccess
+            }
+            if (success) {
+                AppLogger.logApp(
+                    action = "LogActivity.exportLogFile",
+                    details = "Exported ${list.size} log entries to .log file"
+                )
+                showToast(getString(R.string.log_export_success))
+            } else {
+                showToast(getString(R.string.log_export_failed))
+            }
+        }
+    }
+
+    private fun shareLogFileAttachment() {
+        val list = logAdapter.currentList
+        if (list.isEmpty()) {
+            showToast(getString(R.string.log_empty))
+            return
+        }
+        lifecycleScope.launch {
+            val fileUri = withContext(Dispatchers.IO) {
+                runCatching {
+                    val logDir = File(externalCacheDir, "logs").apply { mkdirs() }
+                    val logFile = File(logDir, defaultLogFileName())
+                    logFile.writeText(buildLogFileContent(list), Charsets.UTF_8)
+                    FileProvider.getUriForFile(
+                        this@LogActivity,
+                        "${BuildConfig.APPLICATION_ID}.provider",
+                        logFile
+                    )
+                }.getOrNull()
+            }
+            if (fileUri != null) {
+                AppLogger.logApp(
+                    action = "LogActivity.shareLogFile",
+                    details = "Shared .log file with ${list.size} entries"
+                )
+                val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                    type = "text/plain"
+                    putExtra(Intent.EXTRA_STREAM, fileUri)
+                    clipData = ClipData.newRawUri("Runami GPS .log", fileUri)
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                }
+                startActivity(Intent.createChooser(shareIntent, getString(R.string.log_export)))
+            } else {
+                showToast(getString(R.string.log_export_failed))
+            }
+        }
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
@@ -209,11 +313,11 @@ class LogActivity : AppCompatActivity() {
             }
             MENU_REFRESH -> {
                 AppLogger.requestFlushFromHookedApps(this)
-                showToast("已请求目标应用进程同步定位日志")
+                showToast(getString(R.string.log_sync_requested))
                 true
             }
             MENU_EXPORT -> {
-                shareLogs()
+                showExportLogOptions()
                 true
             }
             MENU_CLEAR -> {

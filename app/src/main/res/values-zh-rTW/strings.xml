@@ -1,0 +1,93 @@
+<resources>
+
+    <!-- Home -->
+    <string name="app_name">Runami GPS</string>
+    <string name="xposed_desc">基於 Xposed 框架（API 101）的免重啟定位偽裝模組。</string>
+    <string name="search">搜尋地址或經緯度座標</string>
+    <string name="address">美國</string>
+    <string name="favorites">我的最愛</string>
+    <string name="logs">運行日誌</string>
+    <string name="address_not_found">找不到該地址</string>
+    <string name="cant_save">儲存失敗</string>
+    <string name="location_set">定位偽裝已開啟</string>
+    <string name="title">定位狀態通知</string>
+    <string name="des">在定位偽裝生效時顯示狀態列通知</string>
+    <string name="location_unset">定位偽裝已停止</string>
+    <string name="no_internet">目前無網路連線</string>
+    <string name="getlocation_desc">取得目前真實位置</string>
+    <string name="addfavorite_desc">加入我的最愛</string>
+    <string name="turn_on_location">請先開啟系統定位服務</string>
+
+    <!-- Logs -->
+    <string name="title_activity_logs">運行與定位請求日誌</string>
+    <string name="log_tab_all">全部記錄</string>
+    <string name="log_tab_app">自身日誌</string>
+    <string name="log_tab_location">定位請求</string>
+    <string name="log_search_hint">搜尋應用程式套件名、介面或座標…</string>
+    <string name="log_empty">目前尚無日誌記錄</string>
+    <string name="log_clear">清空日誌</string>
+    <string name="log_clear_confirm">確定要清空所有自身日誌與定位請求記錄嗎？</string>
+    <string name="log_export">匯出 .log 檔案</string>
+    <string name="log_export_save_file">儲存 .log 檔案至裝置</string>
+    <string name="log_export_share_file">傳送/分享 .log 檔案</string>
+    <string name="log_export_success">.log 日誌檔案匯出成功</string>
+    <string name="log_export_failed">.log 日誌檔案匯出失敗</string>
+    <string name="log_refresh">同步程序日誌</string>
+    <string name="log_sync_requested">已請求目標應用程式同步定位日誌</string>
+    <string name="log_copied">已複製該筆日誌至剪貼簿</string>
+    <string name="log_badge_app">自身日誌</string>
+    <string name="log_badge_spoofed">定位攔截 · 已偽裝</string>
+    <string name="log_badge_passthrough">定位請求 · 透傳</string>
+    <string name="log_status_spoofing_on">偽裝開啟 (%1$.5f, %2$.5f)</string>
+    <string name="log_status_spoofing_off">偽裝未開啟</string>
+    <string name="log_status_summary_format">狀態: %1$s | 總計: %2$d 筆 (自身: %3$d · 請求: %4$d · 已偽裝: %5$d)</string>
+
+    <!-- Errors -->
+    <string name="error_xposed_module_missing">Xposed 模組尚未啟用</string>
+    <string name="error_xposed_module_missing_desc">請在 LSPosed / Vector 管理器中啟用本模組並勾選目標應用程式</string>
+
+    <!-- About -->
+    <string name="about">關於</string>
+    <string name="about_info">維護者：@Akiyama-25\n專案倉庫：https://github.com/Akiyama-25/Runami-GPS\n致謝：@jqssun &amp; @Android1500\n\n基於 Xposed API 101 的免重啟底層定位偽裝工具。</string>
+
+    <!-- Update -->
+    <string name="download_manager_description">正在下載更新</string>
+    <string name="update_button">立即更新</string>
+    <string name="update_available">發現新版本</string>
+    <string name="bs_update_download_failed">更新檔下載失敗</string>
+    <string name="update_channel">更新通道</string>
+
+    <!-- Dialog -->
+    <string name="add_fav_dialog_title">新增收藏位置</string>
+    <string name="dialog_button_add">新增</string>
+    <string name="location_not_select">請先在地圖上選擇或開啟一個位置</string>
+    <string name="save">儲存成功</string>
+
+    <!-- SettingActivity -->
+    <string name="xposed">Xposed 偽裝設定</string>
+    <string name="settings">設定</string>
+    <string name="app_language">介面語言</string>
+    <string name="map_type_title">地圖類型</string>
+    <string name="settings_of_accuracy">定位精準度 (公尺)</string>
+    <string name="preference_category_general">一般設定</string>
+    <string name="enter_valid_input">請輸入有效的數字</string>
+    <string name="delete_favorite_item">刪除收藏</string>
+    <string name="title_activity_settings">設定</string>
+    <string name="check_update">檢查更新</string>
+    <string name="check_update_summary">點擊立即檢查 GitHub 最新版本（啟動應用時自動檢查一次）</string>
+    <string name="checking_for_updates">正在檢查更新…</string>
+    <string name="already_latest_version">目前已是最新版本</string>
+    <string name="enable_joystick">啟用懸浮搖桿</string>
+    <string name="enable_joystick_summary">使用懸浮視窗搖桿即時微調偽裝位置</string>
+    <string name="joystick_enabled">懸浮搖桿已啟用</string>
+    <string name="joystick_disabled">懸浮搖桿已關閉</string>
+    <string name="advanced_hook">深度底層 Binder &amp; GNSS 偽裝（免重啟）</string>
+    <string name="advanced_summary">在目標程序內攔截 ILocationManager Binder 通訊與衛星狀態，無需勾選系統框架或重啟手機</string>
+    <string name="random_position">隨機座標微偏</string>
+    <string name="random_position_summary">在設定位置周圍小範圍隨機微調經緯度，模擬真實感測器抖動</string>
+    <string name="drawer_open">打開側邊欄</string>
+    <string name="drawer_close">關閉側邊欄</string>
+    <string name="app_update_failed">安裝更新失敗</string>
+    <string name="dark_theme">深色模式</string>
+
+</resources>

@@ -2,77 +2,89 @@
 
     <!-- Home -->
     <string name="app_name">Runami GPS</string>
-    <string name="xposed_desc">A GPS setter based on the Xposed framework.</string>
-    <string name="search">Search</string>
+    <string name="xposed_desc">A GPS spoofing module based on Xposed framework (API 101).</string>
+    <string name="search">Search address or coordinates</string>
     <string name="address">United States</string>
     <string name="favorites">Favorites</string>
     <string name="logs">Logs</string>
     <string name="address_not_found">Address not found</string>
     <string name="cant_save">Can\'t save</string>
-    <string name="location_set">Location set</string>
-    <string name="title">Location set notification</string>
-    <string name="des">Show notification when location is set</string>
-    <string name="location_unset">Location unset</string>
-    <string name="no_internet">No Internet</string>
+    <string name="location_set">Location spoofed</string>
+    <string name="title">Location status notification</string>
+    <string name="des">Show notification when spoofing location is active</string>
+    <string name="location_unset">Location spoofing stopped</string>
+    <string name="no_internet">No Internet connection</string>
     <string name="getlocation_desc">Get current location</string>
     <string name="addfavorite_desc">Add favorite</string>
+    <string name="turn_on_location">Please turn on location services</string>
 
     <!-- Logs -->
-    <string name="title_activity_logs">运行与定位请求日志</string>
-    <string name="log_tab_all">全部记录</string>
-    <string name="log_tab_app">自身日志</string>
-    <string name="log_tab_location">定位请求</string>
-    <string name="log_search_hint">搜索应用包名、接口或坐标…</string>
-    <string name="log_empty">暂无日志记录</string>
-    <string name="log_clear">清空日志</string>
-    <string name="log_clear_confirm">确定要清空所有自身日志与定位请求记录吗？</string>
-    <string name="log_export">分享/导出日志</string>
-    <string name="log_refresh">同步进程日志</string>
-    <string name="log_copied">已复制该条日志到剪贴板</string>
-    <string name="log_badge_app">自身日志</string>
-    <string name="log_badge_spoofed">定位拦截 · 已伪装</string>
-    <string name="log_badge_passthrough">定位请求 · 透传</string>
+    <string name="title_activity_logs">Runtime &amp; Location Request Logs</string>
+    <string name="log_tab_all">All</string>
+    <string name="log_tab_app">App Logs</string>
+    <string name="log_tab_location">Location Requests</string>
+    <string name="log_search_hint">Search package, method, or coordinates…</string>
+    <string name="log_empty">No logs recorded yet</string>
+    <string name="log_clear">Clear logs</string>
+    <string name="log_clear_confirm">Are you sure you want to clear all app logs and location request records?</string>
+    <string name="log_export">Export .log file</string>
+    <string name="log_export_save_file">Save .log file to device</string>
+    <string name="log_export_share_file">Share .log file</string>
+    <string name="log_export_success">Exported .log file successfully</string>
+    <string name="log_export_failed">Failed to export .log file</string>
+    <string name="log_refresh">Sync logs</string>
+    <string name="log_sync_requested">Requested target processes to sync location logs</string>
+    <string name="log_copied">Copied log entry to clipboard</string>
+    <string name="log_badge_app">App Log</string>
+    <string name="log_badge_spoofed">Intercepted · Spoofed</string>
+    <string name="log_badge_passthrough">Request · Passthrough</string>
+    <string name="log_status_spoofing_on">Active (%1$.5f, %2$.5f)</string>
+    <string name="log_status_spoofing_off">Inactive</string>
+    <string name="log_status_summary_format">Status: %1$s | Total: %2$d (App: %3$d · Requests: %4$d · Spoofed: %5$d)</string>
 
     <!-- Errors -->
     <string name="error_xposed_module_missing">Xposed module is not enabled</string>
-    <string name="error_xposed_module_missing_desc">Enable this module in LSPosed / Vector Manager</string>
+    <string name="error_xposed_module_missing_desc">Please enable this module in LSPosed / Vector Manager and select your target apps</string>
 
     <!-- About -->
     <string name="about">About</string>
-    <string name="about_info">Maintained by @Akiyama-25\nRepository: https://github.com/Akiyama-25/Runami-GPS\nBased on @jqssun &amp; @Android1500\n\nA GPS setter based on the Xposed framework (API 101).</string>
+    <string name="about_info">Maintained by @Akiyama-25\nRepository: https://github.com/Akiyama-25/Runami-GPS\nBased on @jqssun &amp; @Android1500\n\nA reboot-free GPS spoofing module based on Xposed API 101.</string>
 
     <!-- Update -->
     <string name="download_manager_description">Downloading update</string>
     <string name="update_button">Update</string>
     <string name="update_available">Update available</string>
-    <string name="bs_update_download_failed">Failed</string>
+    <string name="bs_update_download_failed">Download failed</string>
     <string name="update_channel">Update channel</string>
-
 
     <!-- Dialog -->
     <string name="add_fav_dialog_title">Add favorite</string>
     <string name="dialog_button_add">Add</string>
-    <string name="location_not_select">Location not selected</string>
-    <string name="save">Save</string>
+    <string name="location_not_select">Please select or start a location first</string>
+    <string name="save">Saved</string>
 
     <!-- SettingActivity -->
     <string name="xposed">Xposed</string>
     <string name="settings">Settings</string>
+    <string name="app_language">Language</string>
+    <string name="map_type_title">Map type</string>
     <string name="settings_of_accuracy">Accuracy</string>
     <string name="preference_category_general">General</string>
     <string name="enter_valid_input">Enter a valid number</string>
     <string name="delete_favorite_item">Delete favorite</string>
     <string name="title_activity_settings">Settings</string>
-    <string name="check_update">检查更新</string>
-    <string name="check_update_summary">点击立即检查 GitHub 最新版本（启动应用时自动检查一次）</string>
-    <string name="checking_for_updates">正在检查更新…</string>
-    <string name="already_latest_version">当前已是最新版本</string>
+    <string name="check_update">Check for updates</string>
+    <string name="check_update_summary">Tap to check for the latest version on GitHub (auto-checks once on launch)</string>
+    <string name="checking_for_updates">Checking for updates…</string>
+    <string name="already_latest_version">Already on the latest version</string>
     <string name="enable_joystick">Use joystick</string>
-    <string name="enable_joystick_summary">Control your location with a joystick (experimental)</string>
-    <string name="advanced_hook">深度底层 Binder &amp; GNSS 伪装（免重启）</string>
-    <string name="advanced_summary">在目标进程内拦截 ILocationManager Binder 通信与卫星状态，无需勾选系统框架或重启手机</string>
-    <string name="random_position">Random location</string>
-    <string name="random_position_summary">Use a random location around the set location</string>
+    <string name="enable_joystick_summary">Control your spoofed location with a floating joystick</string>
+    <string name="joystick_enabled">Joystick enabled</string>
+    <string name="joystick_disabled">Joystick disabled</string>
+    <string name="advanced_hook">Deep Binder &amp; GNSS Spoofing (Reboot-free)</string>
+    <string name="advanced_summary">Intercept ILocationManager Binder IPC and GNSS satellite status inside target apps without System Framework or reboot</string>
+    <string name="random_position">Random location jitter</string>
+    <string name="random_position_summary">Randomly jitter coordinates slightly around the set location</string>
     <string name="drawer_open">Open</string>
     <string name="drawer_close">Close</string>
     <string name="app_update_failed">Update failed</string>

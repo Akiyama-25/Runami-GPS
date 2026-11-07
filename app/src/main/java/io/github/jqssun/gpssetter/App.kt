@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.appcompat.app.AppCompatDelegate
 import dagger.hilt.android.HiltAndroidApp
 import io.github.jqssun.gpssetter.utils.AppLogger
+import io.github.jqssun.gpssetter.utils.LocaleHelper
 import io.github.jqssun.gpssetter.utils.PrefManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -30,9 +31,10 @@ class App : Application() {
         AppLogger.init(this)
         commonInit()
         AppCompatDelegate.setDefaultNightMode(PrefManager.darkTheme)
+        LocaleHelper.applyLanguage(PrefManager.appLanguage)
         AppLogger.logApp(
             action = "App.onCreate (应用启动)",
-            details = "版本=${BuildConfig.VERSION_NAME}, 当前伪装状态=${if (PrefManager.isStarted) "开启 (${PrefManager.getLat}, ${PrefManager.getLng})" else "关闭"}"
+            details = "版本=${BuildConfig.VERSION_NAME}, 语言=${PrefManager.appLanguage}, 当前伪装状态=${if (PrefManager.isStarted) "开启 (${PrefManager.getLat}, ${PrefManager.getLng})" else "关闭"}"
         )
     }
 }

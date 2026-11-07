@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="language_texts">
+        <item>跟随系统</item>
+        <item>简体中文</item>
+        <item>繁體中文</item>
+        <item>English</item>
+        <item>日本語</item>
+    </string-array>
+
+    <string-array name="map_type">
+        <item>标准地图</item>
+        <item>卫星图像</item>
+        <item>地形图</item>
+        <item>混合视图</item>
+    </string-array>
+
+    <string-array name="theme_texts">
+        <item>始终浅色</item>
+        <item>始终深色</item>
+        <item>跟随系统</item>
+    </string-array>
+
+    <string-array name="update_channel_texts">
+        <item>Release（正式版通道）</item>
+        <item>Action（CI 构建通道）</item>
+    </string-array>
+</resources>

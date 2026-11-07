@@ -1,0 +1,93 @@
+<resources>
+
+    <!-- Home -->
+    <string name="app_name">Runami GPS</string>
+    <string name="xposed_desc">Xposed フレームワーク (API 101) に基づく再起動不要の位置情報偽装モジュール。</string>
+    <string name="search">住所または座標を検索</string>
+    <string name="address">アメリカ合衆国</string>
+    <string name="favorites">お気に入り</string>
+    <string name="logs">動作ログ</string>
+    <string name="address_not_found">住所が見つかりません</string>
+    <string name="cant_save">保存できません</string>
+    <string name="location_set">位置偽装を開始しました</string>
+    <string name="title">位置偽装ステータス通知</string>
+    <string name="des">位置偽装が有効な時に通知を表示します</string>
+    <string name="location_unset">位置偽装を停止しました</string>
+    <string name="no_internet">インターネット接続がありません</string>
+    <string name="getlocation_desc">現在地を取得</string>
+    <string name="addfavorite_desc">お気に入りに追加</string>
+    <string name="turn_on_location">位置情報サービスを有効にしてください</string>
+
+    <!-- Logs -->
+    <string name="title_activity_logs">動作・位置リクエストログ</string>
+    <string name="log_tab_all">すべて</string>
+    <string name="log_tab_app">アプリログ</string>
+    <string name="log_tab_location">位置リクエスト</string>
+    <string name="log_search_hint">パッケージ名、メソッド、座標を検索…</string>
+    <string name="log_empty">ログ記録はまだありません</string>
+    <string name="log_clear">ログを消去</string>
+    <string name="log_clear_confirm">すべてのアプリログと位置リクエスト記録を消去しますか？</string>
+    <string name="log_export">.log ファイルを出力</string>
+    <string name="log_export_save_file">.log ファイルを端末に保存</string>
+    <string name="log_export_share_file">.log ファイルを共有</string>
+    <string name="log_export_success">.log ファイルを出力しました</string>
+    <string name="log_export_failed">.log ファイルの出力に失敗しました</string>
+    <string name="log_refresh">プロセスログを同期</string>
+    <string name="log_sync_requested">対象アプリに位置ログの同期を要求しました</string>
+    <string name="log_copied">ログをクリップボードにコピーしました</string>
+    <string name="log_badge_app">アプリログ</string>
+    <string name="log_badge_spoofed">位置フック · 偽装済</string>
+    <string name="log_badge_passthrough">位置要求 · パススルー</string>
+    <string name="log_status_spoofing_on">偽装有効 (%1$.5f, %2$.5f)</string>
+    <string name="log_status_spoofing_off">偽装無効</string>
+    <string name="log_status_summary_format">状態: %1$s | 合計: %2$d 件 (自身: %3$d · 要求: %4$d · 偽装: %5$d)</string>
+
+    <!-- Errors -->
+    <string name="error_xposed_module_missing">Xposed モジュールが無効です</string>
+    <string name="error_xposed_module_missing_desc">LSPosed / Vector マネージャーでこのモジュールを有効にし、対象アプリを選択してください</string>
+
+    <!-- About -->
+    <string name="about">このアプリについて</string>
+    <string name="about_info">メンテナー: @Akiyama-25\nリポジトリ: https://github.com/Akiyama-25/Runami-GPS\n謝辞: @jqssun &amp; @Android1500\n\nXposed API 101 に基づく再起動不要の位置偽装ツール。</string>
+
+    <!-- Update -->
+    <string name="download_manager_description">アップデートをダウンロード中</string>
+    <string name="update_button">更新する</string>
+    <string name="update_available">新しいバージョンがあります</string>
+    <string name="bs_update_download_failed">ダウンロードに失敗しました</string>
+    <string name="update_channel">アップデートチャンネル</string>
+
+    <!-- Dialog -->
+    <string name="add_fav_dialog_title">お気に入りに追加</string>
+    <string name="dialog_button_add">追加</string>
+    <string name="location_not_select">先に地図上で位置を選択または開始してください</string>
+    <string name="save">保存しました</string>
+
+    <!-- SettingActivity -->
+    <string name="xposed">Xposed 偽装設定</string>
+    <string name="settings">設定</string>
+    <string name="app_language">表示言語</string>
+    <string name="map_type_title">地図タイプ</string>
+    <string name="settings_of_accuracy">位置精度 (m)</string>
+    <string name="preference_category_general">一般設定</string>
+    <string name="enter_valid_input">有効な数値を入力してください</string>
+    <string name="delete_favorite_item">お気に入りを削除</string>
+    <string name="title_activity_settings">設定</string>
+    <string name="check_update">アップデートを確認</string>
+    <string name="check_update_summary">タップして GitHub の最新バージョンを確認（起動時に1回自動確認）</string>
+    <string name="checking_for_updates">アップデートを確認中…</string>
+    <string name="already_latest_version">最新バージョンを使用しています</string>
+    <string name="enable_joystick">ジョイスティックを使用</string>
+    <string name="enable_joystick_summary">フローティングジョイスティックで位置をリアルタイム操作</string>
+    <string name="joystick_enabled">ジョイスティック有効</string>
+    <string name="joystick_disabled">ジョイスティック無効</string>
+    <string name="advanced_hook">深層 Binder &amp; GNSS 偽装（再起動不要）</string>
+    <string name="advanced_summary">対象プロセス内で ILocationManager Binder 通信と衛星状態をフック（システムフレームワーク不要・再起動不要）</string>
+    <string name="random_position">ランダム位置揺らぎ</string>
+    <string name="random_position_summary">設定位置の周囲で座標を微小にランダム変動させます</string>
+    <string name="drawer_open">メニューを開く</string>
+    <string name="drawer_close">メニューを閉じる</string>
+    <string name="app_update_failed">アップデートのインストールに失敗しました</string>
+    <string name="dark_theme">ダークテーマ</string>
+
+</resources>

@@ -35,6 +35,7 @@ import io.github.jqssun.gpssetter.ui.viewmodel.MainViewModel
 import io.github.jqssun.gpssetter.update.UpdateChecker
 import io.github.jqssun.gpssetter.utils.AppLogger
 import io.github.jqssun.gpssetter.utils.JoystickService
+import io.github.jqssun.gpssetter.utils.LocaleHelper
 import io.github.jqssun.gpssetter.utils.PrefManager
 import io.github.jqssun.gpssetter.utils.ext.showToast
 import kotlinx.coroutines.launch
@@ -77,6 +78,7 @@ class ActivitySettings : AppCompatActivity() {
                 "accuracy_level" -> PrefManager.accuracy
                 "map_type" -> PrefManager.mapType.toString()
                 "dark_theme" -> PrefManager.darkTheme.toString()
+                "app_language" -> PrefManager.appLanguage
                 "update_channel" -> PrefManager.updateChannel
                 else -> throw IllegalArgumentException("Invalid key $key")
             }
@@ -87,6 +89,7 @@ class ActivitySettings : AppCompatActivity() {
                 "accuracy_level" -> PrefManager.accuracy = value
                 "map_type" -> PrefManager.mapType = value!!.toInt()
                 "dark_theme" -> PrefManager.darkTheme = value!!.toInt()
+                "app_language" -> PrefManager.appLanguage = value ?: "system"
                 "update_channel" -> PrefManager.updateChannel = value ?: "release"
                 else -> throw IllegalArgumentException("Invalid key $key")
             }
@@ -134,6 +137,15 @@ class ActivitySettings : AppCompatActivity() {
         override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
             preferenceManager?.preferenceDataStore = SettingPreferenceDataStore()
             setPreferencesFromResource(R.xml.preferences, rootKey)
+
+            findPreference<DropDownPreference>("app_language")?.setOnPreferenceChangeListener { _, newValue ->
+                val newLang = (newValue as? String) ?: "system"
+                if (PrefManager.appLanguage != newLang) {
+                    PrefManager.appLanguage = newLang
+                    LocaleHelper.applyLanguage(newLang)
+                }
+                true
+            }
 
             findPreference<Preference>("check_update_now")?.setOnPreferenceClickListener { pref ->
                 val ctx = requireContext()
@@ -189,10 +201,10 @@ class ActivitySettings : AppCompatActivity() {
                     if (askOverlayPermission()) {
                         if (isJoystickRunning()) {
                             requireContext().stopService(Intent(context, JoystickService::class.java))
-                            it.summary = "Joystick disabled"
+                            it.summary = getString(R.string.joystick_disabled)
                         } else if (PrefManager.isStarted) {
                             requireContext().startService(Intent(context, JoystickService::class.java))
-                            it.summary = "Joystick enabled"
+                            it.summary = getString(R.string.joystick_enabled)
                         } else {
                             requireContext().showToast(requireContext().getString(R.string.location_not_select))
                         }
