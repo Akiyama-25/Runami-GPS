@@ -52,6 +52,7 @@ class LogActivity : AppCompatActivity() {
 
     private var allLogsCache: List<LogEntry> = emptyList()
     private var selectedCategory: String? = null
+    private var selectedLogLevel: String = PrefManager.logLevel
     private var searchQuery: String = ""
 
     // Use application/octet-stream so Android SAF DocumentsUI preserves the exact .log extension without appending .txt
@@ -65,8 +66,16 @@ class LogActivity : AppCompatActivity() {
 
     companion object {
         private const val MENU_REFRESH = 1001
-        private const val MENU_EXPORT = 1002
-        private const val MENU_CLEAR = 1003
+        private const val MENU_LEVEL = 1002
+        private const val MENU_EXPORT = 1003
+        private const val MENU_CLEAR = 1004
+
+        private val LEVEL_VALUES = arrayOf(
+            LogEntry.LEVEL_ERROR,
+            LogEntry.LEVEL_WARN,
+            LogEntry.LEVEL_INFO,
+            LogEntry.LEVEL_DEBUG
+        )
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -80,6 +89,9 @@ class LogActivity : AppCompatActivity() {
 
         setSupportActionBar(binding.toolbar)
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
+
+        selectedLogLevel = LogEntry.normalizeLevel(PrefManager.logLevel)
+        updateLogLevelChipText()
 
         logAdapter = LogListAdapter { entry ->
             copySingleLogToClipboard(entry)
@@ -99,6 +111,10 @@ class LogActivity : AppCompatActivity() {
             applyFilters()
         }
 
+        binding.chipLogLevel.setOnClickListener {
+            showLogLevelPickerDialog()
+        }
+
         binding.logSearchInput.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
@@ -114,8 +130,35 @@ class LogActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        selectedLogLevel = LogEntry.normalizeLevel(PrefManager.logLevel)
+        updateLogLevelChipText()
         AppLogger.requestFlushFromHookedApps(this)
         updateHeaderSummary()
+        applyFilters()
+    }
+
+    private fun updateLogLevelChipText() {
+        binding.chipLogLevel.text = getString(R.string.log_level_chip_format, selectedLogLevel)
+    }
+
+    private fun showLogLevelPickerDialog() {
+        val labels = resources.getStringArray(R.array.log_level_texts)
+        val currentIdx = LEVEL_VALUES.indexOfFirst { it.equals(selectedLogLevel, ignoreCase = true) }
+            .coerceAtLeast(0)
+
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.log_level_dialog_title)
+            .setSingleChoiceItems(labels, currentIdx) { dialog, which ->
+                val chosen = LEVEL_VALUES.getOrElse(which) { LogEntry.LEVEL_ERROR }
+                selectedLogLevel = chosen
+                PrefManager.logLevel = chosen
+                updateLogLevelChipText()
+                updateHeaderSummary()
+                applyFilters()
+                dialog.dismiss()
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
     }
 
     private fun observeLogs() {
@@ -131,10 +174,11 @@ class LogActivity : AppCompatActivity() {
     }
 
     private fun updateHeaderSummary() {
-        val total = allLogsCache.size
-        val appCount = allLogsCache.count { it.category == LogEntry.CATEGORY_APP }
-        val locCount = allLogsCache.count { it.category == LogEntry.CATEGORY_LOCATION }
-        val spoofedCount = allLogsCache.count { it.category == LogEntry.CATEGORY_LOCATION && it.isSpoofed }
+        val levelFiltered = allLogsCache.filter { AppLogger.shouldShowEntry(it, selectedLogLevel) }
+        val total = levelFiltered.size
+        val appCount = levelFiltered.count { it.category == LogEntry.CATEGORY_APP }
+        val locCount = levelFiltered.count { it.category == LogEntry.CATEGORY_LOCATION }
+        val spoofedCount = levelFiltered.count { it.category == LogEntry.CATEGORY_LOCATION && it.isSpoofed }
         val statusStr = if (PrefManager.isStarted) {
             getString(R.string.log_status_spoofing_on, PrefManager.getLat, PrefManager.getLng)
         } else {
@@ -153,12 +197,15 @@ class LogActivity : AppCompatActivity() {
     private fun applyFilters() {
         val query = searchQuery.lowercase(Locale.getDefault())
         val filtered = allLogsCache.filter { entry ->
+            // Location request records are NEVER affected by log level
+            val matchesLevel = AppLogger.shouldShowEntry(entry, selectedLogLevel)
             val matchesCat = selectedCategory == null || entry.category == selectedCategory
             val matchesQuery = query.isEmpty() ||
                 entry.packageName.lowercase(Locale.getDefault()).contains(query) ||
                 entry.action.lowercase(Locale.getDefault()).contains(query) ||
-                entry.details.lowercase(Locale.getDefault()).contains(query)
-            matchesCat && matchesQuery
+                entry.details.lowercase(Locale.getDefault()).contains(query) ||
+                entry.level.lowercase(Locale.getDefault()).contains(query)
+            matchesLevel && matchesCat && matchesQuery
         }
 
         logAdapter.submitList(filtered)
@@ -166,24 +213,27 @@ class LogActivity : AppCompatActivity() {
     }
 
     private fun formatLogLine(entry: LogEntry, sdf: SimpleDateFormat): String {
+        val normalizedLevel = LogEntry.normalizeLevel(entry.level)
+        val shortLvl = LogEntry.shortTag(normalizedLevel)
         val tag = when {
-            entry.category == LogEntry.CATEGORY_APP -> "APP"
+            entry.category == LogEntry.CATEGORY_APP -> "APP:$normalizedLevel"
             entry.isSpoofed -> "LOC:SPOOFED"
             else -> "LOC:PASSTHROUGH"
         }
-        val level = if (
-            entry.details.contains("未激活") ||
-            entry.details.contains("失败") ||
-            entry.action.contains("Fail", ignoreCase = true) ||
-            entry.action.contains("Error", ignoreCase = true)
-        ) {
-            "W"
-        } else {
-            "I"
-        }
         val cleanAction = entry.action.replace('\n', ' ').trim()
-        val cleanDetails = entry.details.replace('\n', ' ').trim()
-        return "${sdf.format(Date(entry.timestamp))} $level/RunamiGPS [$tag] [${entry.packageName}] $cleanAction: $cleanDetails"
+        val lines = entry.details.trim().lines()
+        val firstLine = lines.firstOrNull().orEmpty()
+        val prefix = "${sdf.format(Date(entry.timestamp))} $shortLvl/RunamiGPS [$tag] [${entry.packageName}] $cleanAction: $firstLine"
+        return if (lines.size <= 1) {
+            prefix
+        } else {
+            buildString {
+                append(prefix)
+                for (i in 1 until lines.size) {
+                    append('\n').append("    ").append(lines[i])
+                }
+            }
+        }
     }
 
     private fun copySingleLogToClipboard(entry: LogEntry) {
@@ -227,6 +277,7 @@ class LogActivity : AppCompatActivity() {
         sb.appendLine("VERSION_CODE: ${BuildConfig.VERSION_CODE}")
         sb.appendLine("XPOSED_STATUS: ${XposedSelfCheck.getStatusSummary(this)}")
         sb.appendLine("SPOOFING_STATUS: $spoofingDesc")
+        sb.appendLine("APP_LOG_LEVEL: $selectedLogLevel (Location Requests Exempt / Unfiltered)")
         sb.appendLine("EXPORT_TIME: ${sdf.format(Date())}")
         sb.appendLine()
 
@@ -285,7 +336,8 @@ class LogActivity : AppCompatActivity() {
             if (success) {
                 AppLogger.logApp(
                     action = "LogActivity.exportLogFile",
-                    details = "Exported ${list.size} log entries to .log file"
+                    details = "Exported ${list.size} log entries to .log file (level=$selectedLogLevel)",
+                    level = LogEntry.LEVEL_DEBUG
                 )
                 showToast(getString(R.string.log_export_success))
             } else {
@@ -316,7 +368,8 @@ class LogActivity : AppCompatActivity() {
             if (fileUri != null) {
                 AppLogger.logApp(
                     action = "LogActivity.shareLogFile",
-                    details = "Shared .log file with ${list.size} entries"
+                    details = "Shared .log file with ${list.size} entries (level=$selectedLogLevel)",
+                    level = LogEntry.LEVEL_DEBUG
                 )
                 val shareIntent = Intent(Intent.ACTION_SEND).apply {
                     type = "application/octet-stream"
@@ -336,10 +389,13 @@ class LogActivity : AppCompatActivity() {
             setIcon(R.drawable.ic_update)
             setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM)
         }
-        menu.add(Menu.NONE, MENU_EXPORT, 2, getString(R.string.log_export)).apply {
+        menu.add(Menu.NONE, MENU_LEVEL, 2, getString(R.string.log_level_title)).apply {
             setShowAsAction(MenuItem.SHOW_AS_ACTION_NEVER)
         }
-        menu.add(Menu.NONE, MENU_CLEAR, 3, getString(R.string.log_clear)).apply {
+        menu.add(Menu.NONE, MENU_EXPORT, 3, getString(R.string.log_export)).apply {
+            setShowAsAction(MenuItem.SHOW_AS_ACTION_NEVER)
+        }
+        menu.add(Menu.NONE, MENU_CLEAR, 4, getString(R.string.log_clear)).apply {
             setIcon(R.drawable.ic_delete)
             setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM)
         }
@@ -355,6 +411,10 @@ class LogActivity : AppCompatActivity() {
             MENU_REFRESH -> {
                 AppLogger.requestFlushFromHookedApps(this)
                 showToast(getString(R.string.log_sync_requested))
+                true
+            }
+            MENU_LEVEL -> {
+                showLogLevelPickerDialog()
                 true
             }
             MENU_EXPORT -> {

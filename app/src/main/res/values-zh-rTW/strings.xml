@@ -41,6 +41,10 @@
     <string name="log_status_spoofing_on">偽裝開啟 (%1$.5f, %2$.5f)</string>
     <string name="log_status_spoofing_off">偽裝未開啟</string>
     <string name="log_status_summary_format">狀態: %1$s | 總計: %2$d 筆 (自身: %3$d · 請求: %4$d · 已偽裝: %5$d)</string>
+    <string name="log_level_title">日誌記錄層級（定位請求不受限）</string>
+    <string name="log_level_dialog_title">選擇自身日誌層級（定位請求記錄不受層級影響）</string>
+    <string name="log_level_chip_default">層級: ERROR</string>
+    <string name="log_level_chip_format">層級: %1$s</string>
 
     <!-- Errors -->
     <string name="error_xposed_module_missing">Xposed 模組尚未啟用</string>

@@ -25,4 +25,11 @@
         <item>Release（正式版通道）</item>
         <item>Action（CI 建置通道）</item>
     </string-array>
+
+    <string-array name="log_level_texts">
+        <item>ERROR — 僅錯誤（預設，定位請求始終完整記錄）</item>
+        <item>WARN — 警告與錯誤</item>
+        <item>INFO — 常規運行資訊、警告與錯誤</item>
+        <item>DEBUG — 全部詳細除錯與運行日誌</item>
+    </string-array>
 </resources>

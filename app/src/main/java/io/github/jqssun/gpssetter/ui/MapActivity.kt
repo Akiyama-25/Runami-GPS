@@ -145,11 +145,14 @@ class MapActivity : BaseMapActivity(), OnMapReadyCallback, GoogleMap.OnMapClickL
                 action = "MapActivity.onMapClick (点击地图选点)",
                 details = String.format(
                     Locale.US,
-                    "选定坐标=(%.6f, %.6f), 实时生效=%s",
+                    "selectedLat=%.6f | selectedLng=%.6f | mapType=%d | zoom=%.1f | liveSpoofActive=%s",
                     lat,
                     lon,
-                    if (viewModel.isStarted) "是" else "否（待点击开始按钮）"
-                )
+                    mMap.mapType,
+                    mMap.cameraPosition.zoom,
+                    if (viewModel.isStarted) "true(实时同步)" else "false(待点击开始)"
+                ),
+                level = io.github.jqssun.gpssetter.room.LogEntry.LEVEL_DEBUG
             )
             syncLocationIfStarted()
         }

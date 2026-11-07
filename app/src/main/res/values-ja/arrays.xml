@@ -25,4 +25,11 @@
         <item>Release（安定版）</item>
         <item>Action（CI ビルド）</item>
     </string-array>
+
+    <string-array name="log_level_texts">
+        <item>ERROR — エラーのみ（デフォルト、位置リクエストは常に記録）</item>
+        <item>WARN — 警告とエラー</item>
+        <item>INFO — 通常の動作情報・警告・エラー</item>
+        <item>DEBUG — すべての詳細デバッグ・動作ログ</item>
+    </string-array>
 </resources>

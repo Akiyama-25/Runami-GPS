@@ -72,7 +72,8 @@ class ActivitySettings : AppCompatActivity() {
             PrefManager.makeWorldReadable()
             AppLogger.logApp(
                 action = "Settings.putBoolean ($key)",
-                details = "配置项 $key 已更新为 $value"
+                details = "key=$key | newValue=$value | worldReadable=true",
+                level = io.github.jqssun.gpssetter.room.LogEntry.LEVEL_INFO
             )
         }
 
@@ -83,6 +84,7 @@ class ActivitySettings : AppCompatActivity() {
                 "dark_theme" -> PrefManager.darkTheme.toString()
                 "app_language" -> PrefManager.appLanguage
                 "update_channel" -> PrefManager.updateChannel
+                "log_level" -> PrefManager.logLevel
                 else -> throw IllegalArgumentException("Invalid key $key")
             }
         }
@@ -94,12 +96,14 @@ class ActivitySettings : AppCompatActivity() {
                 "dark_theme" -> PrefManager.darkTheme = value!!.toInt()
                 "app_language" -> PrefManager.appLanguage = value ?: "system"
                 "update_channel" -> PrefManager.updateChannel = value ?: "release"
+                "log_level" -> PrefManager.logLevel = value ?: io.github.jqssun.gpssetter.room.LogEntry.LEVEL_ERROR
                 else -> throw IllegalArgumentException("Invalid key $key")
             }
             PrefManager.makeWorldReadable()
             AppLogger.logApp(
                 action = "Settings.putString ($key)",
-                details = "配置项 $key 已更新为 $value"
+                details = "key=$key | newValue=$value | worldReadable=true",
+                level = io.github.jqssun.gpssetter.room.LogEntry.LEVEL_INFO
             )
         }
     }

@@ -41,6 +41,10 @@
     <string name="log_status_spoofing_on">偽装有効 (%1$.5f, %2$.5f)</string>
     <string name="log_status_spoofing_off">偽装無効</string>
     <string name="log_status_summary_format">状態: %1$s | 合計: %2$d 件 (自身: %3$d · 要求: %4$d · 偽装: %5$d)</string>
+    <string name="log_level_title">ログレベル（位置リクエストは対象外）</string>
+    <string name="log_level_dialog_title">アプリログのレベルを選択（位置リクエストは常に記録されます）</string>
+    <string name="log_level_chip_default">レベル: ERROR</string>
+    <string name="log_level_chip_format">レベル: %1$s</string>
 
     <!-- Errors -->
     <string name="error_xposed_module_missing">Xposed モジュールが無効です</string>

@@ -1,0 +1,78 @@
+SDK: 36 (Android 16)
+PRODUCT_NAME: houji
+DEVICE_NAME: houji
+BOARD_NAME: houji
+SUPPORTED_ABIS: arm64-v8a
+MANUFACTURER: Xiaomi
+BRAND: Xiaomi
+MODEL: 23127PN0CG
+
+APP_NAME: Runami GPS
+PACKAGE: Akari.Runami.GPS
+VERSION_NAME: Action-9
+VERSION_CODE: 6
+XPOSED_STATUS: ACTIVE (SelfHook=true, XSharedPrefs=true, API=102)
+SPOOFING_STATUS: ACTIVE (35.585522, 140.161133) | Accuracy=10m | Random=true | GnssEnhance=true
+EXPORT_TIME: 2026-11-07 13:19:53.321
+
+2026-11-07 08:49:37.834 I/RunamiGPS [APP] [Akari.Runami.GPS] App.onCreate (应用启动): 版本=Action-5, 当前伪装状态=关闭
+2026-11-07 08:49:38.178 I/RunamiGPS [APP] [Akari.Runami.GPS] XposedStateCheck (模块激活状态检查): Xposed 模块已激活 (API 101)
+2026-11-07 08:49:38.376 W/RunamiGPS [APP] [Akari.Runami.GPS] XposedStateCheck (模块激活状态检查): Xposed 模块未激活，请在 LSPosed / Vector 中启用
+2026-11-07 08:49:41.929 W/RunamiGPS [APP] [Akari.Runami.GPS] XposedStateCheck (模块激活状态检查): Xposed 模块未激活，请在 LSPosed / Vector 中启用
+2026-11-07 09:04:16.787 I/RunamiGPS [APP] [Akari.Runami.GPS] App.onCreate (应用启动): 版本=Action-7, 当前伪装状态=关闭
+2026-11-07 09:04:16.859 I/RunamiGPS [APP] [Akari.Runami.GPS] UpdateChecker.autoCheck (启动自动检查更新): 当前版本=Action-7, 更新通道=action
+2026-11-07 09:04:17.056 I/RunamiGPS [APP] [Akari.Runami.GPS] XposedStateCheck (模块激活状态检查): Xposed 模块已激活 (API 101)
+2026-11-07 09:04:17.161 W/RunamiGPS [APP] [Akari.Runami.GPS] XposedStateCheck (模块激活状态检查): Xposed 模块未激活，请在 LSPosed / Vector 中启用
+2026-11-07 09:04:29.677 I/RunamiGPS [APP] [Akari.Runami.GPS] XposedStateCheck (模块激活状态检查): Xposed 模块已激活 (API 101)
+2026-11-07 09:04:29.770 W/RunamiGPS [APP] [Akari.Runami.GPS] XposedStateCheck (模块激活状态检查): Xposed 模块未激活，请在 LSPosed / Vector 中启用
+2026-11-07 09:04:51.025 W/RunamiGPS [APP] [Akari.Runami.GPS] XposedStateCheck (模块激活状态检查): Xposed 模块未激活，请在 LSPosed / Vector 中启用
+2026-11-07 09:05:15.038 W/RunamiGPS [APP] [Akari.Runami.GPS] XposedStateCheck (模块激活状态检查): Xposed 模块未激活，请在 LSPosed / Vector 中启用
+2026-11-07 09:05:16.655 I/RunamiGPS [APP] [Akari.Runami.GPS] PrefManager.update (开启/更新伪装位置): 状态=已开启, 坐标=(40.712799, -74.005997), 精度=10m, 随机偏移=true, 系统GNSS增强=true
+2026-11-07 09:05:30.140 I/RunamiGPS [APP] [Akari.Runami.GPS] MapSearch.onComplete (地址/坐标搜索): 关键词="chiba" -> (35.607404, 140.106537)
+2026-11-07 09:05:30.143 I/RunamiGPS [APP] [Akari.Runami.GPS] PrefManager.update (开启/更新伪装位置): 状态=已开启, 坐标=(35.607404, 140.106537), 精度=10m, 随机偏移=true, 系统GNSS增强=true
+2026-11-07 09:05:34.204 I/RunamiGPS [APP] [Akari.Runami.GPS] MapActivity.onMapClick (点击地图选点): 选定坐标=(35.583763, 140.152654), 实时生效=是
+2026-11-07 09:05:34.205 I/RunamiGPS [APP] [Akari.Runami.GPS] PrefManager.update (开启/更新伪装位置): 状态=已开启, 坐标=(35.583763, 140.152654), 精度=10m, 随机偏移=true, 系统GNSS增强=true
+2026-11-07 09:06:41.439 W/RunamiGPS [APP] [Akari.Runami.GPS] XposedStateCheck (模块激活状态检查): Xposed 模块未激活，请在 LSPosed / Vector 中启用
+2026-11-07 09:34:08.270 I/RunamiGPS [APP] [Akari.Runami.GPS] App.onCreate (应用启动): 版本=Action-7, 当前伪装状态=开启 (35.583763122558594, 140.15264892578125)
+2026-11-07 09:34:08.425 I/RunamiGPS [APP] [Akari.Runami.GPS] UpdateChecker.autoCheck (启动自动检查更新): 当前版本=Action-7, 更新通道=action
+2026-11-07 09:34:08.682 I/RunamiGPS [APP] [Akari.Runami.GPS] XposedStateCheck (模块激活状态检查): Xposed 模块已激活 (API 101)
+2026-11-07 09:34:08.804 W/RunamiGPS [APP] [Akari.Runami.GPS] XposedStateCheck (模块激活状态检查): Xposed 模块未激活，请在 LSPosed / Vector 中启用
+2026-11-07 09:35:05.564 I/RunamiGPS [APP] [Akari.Runami.GPS] App.onCreate (应用启动): 版本=Action-7, 当前伪装状态=开启 (35.583763122558594, 140.15264892578125)
+2026-11-07 09:35:05.655 I/RunamiGPS [APP] [Akari.Runami.GPS] UpdateChecker.autoCheck (启动自动检查更新): 当前版本=Action-7, 更新通道=action
+2026-11-07 09:35:05.819 I/RunamiGPS [APP] [Akari.Runami.GPS] XposedStateCheck (模块激活状态检查): Xposed 模块已激活 (API 101)
+2026-11-07 09:35:06.014 W/RunamiGPS [APP] [Akari.Runami.GPS] XposedStateCheck (模块激活状态检查): Xposed 模块未激活，请在 LSPosed / Vector 中启用
+2026-11-07 09:37:51.234 W/RunamiGPS [APP] [Akari.Runami.GPS] XposedStateCheck (模块激活状态检查): Xposed 模块未激活，请在 LSPosed / Vector 中启用
+2026-11-07 09:38:36.488 W/RunamiGPS [APP] [Akari.Runami.GPS] XposedStateCheck (模块激活状态检查): Xposed 模块未激活，请在 LSPosed / Vector 中启用
+2026-11-07 09:39:22.317 I/RunamiGPS [APP] [Akari.Runami.GPS] App.onCreate (应用启动): 版本=Action-7, 当前伪装状态=开启 (35.583763122558594, 140.15264892578125)
+2026-11-07 09:39:22.378 I/RunamiGPS [APP] [Akari.Runami.GPS] UpdateChecker.autoCheck (启动自动检查更新): 当前版本=Action-7, 更新通道=action
+2026-11-07 09:39:22.547 I/RunamiGPS [APP] [Akari.Runami.GPS] XposedStateCheck (模块激活状态检查): Xposed 模块已激活 (API 101)
+2026-11-07 09:39:22.648 W/RunamiGPS [APP] [Akari.Runami.GPS] XposedStateCheck (模块激活状态检查): Xposed 模块未激活，请在 LSPosed / Vector 中启用
+2026-11-07 09:39:26.247 W/RunamiGPS [APP] [Akari.Runami.GPS] XposedStateCheck (模块激活状态检查): Xposed 模块未激活，请在 LSPosed / Vector 中启用
+2026-11-07 09:41:03.867 I/RunamiGPS [APP] [Akari.Runami.GPS] App.onCreate (应用启动): 版本=Action-8, 语言=system, 当前伪装状态=开启 (35.583763122558594, 140.15264892578125)
+2026-11-07 09:41:04.007 I/RunamiGPS [APP] [Akari.Runami.GPS] UpdateChecker.autoCheck (启动自动检查更新): 当前版本=Action-8, 更新通道=action
+2026-11-07 09:41:04.297 I/RunamiGPS [APP] [Akari.Runami.GPS] XposedStateCheck (模块激活状态检查): Xposed 模块已激活 (API 101)
+2026-11-07 09:41:04.421 W/RunamiGPS [APP] [Akari.Runami.GPS] XposedStateCheck (模块激活状态检查): Xposed 模块未激活，请在 LSPosed / Vector 中启用
+2026-11-07 09:41:32.327 I/RunamiGPS [APP] [Akari.Runami.GPS] App.onCreate (应用启动): 版本=Action-8, 语言=system, 当前伪装状态=开启 (35.583763122558594, 140.15264892578125)
+2026-11-07 09:41:32.429 I/RunamiGPS [APP] [Akari.Runami.GPS] UpdateChecker.autoCheck (启动自动检查更新): 当前版本=Action-8, 更新通道=action
+2026-11-07 09:41:32.613 I/RunamiGPS [APP] [Akari.Runami.GPS] XposedStateCheck (模块激活状态检查): Xposed 模块已激活 (API 101)
+2026-11-07 09:41:32.761 W/RunamiGPS [APP] [Akari.Runami.GPS] XposedStateCheck (模块激活状态检查): Xposed 模块未激活，请在 LSPosed / Vector 中启用
+2026-11-07 09:42:53.936 I/RunamiGPS [APP] [Akari.Runami.GPS] LogActivity.exportLogFile: Exported 41 log entries to .log file
+2026-11-07 13:12:33.983 I/RunamiGPS [APP] [Akari.Runami.GPS] App.onCreate (应用启动): 版本=Action-8, 语言=system, 当前伪装状态=开启 (35.583763122558594, 140.15264892578125)
+2026-11-07 13:12:34.077 I/RunamiGPS [APP] [Akari.Runami.GPS] UpdateChecker.autoCheck (启动自动检查更新): 当前版本=Action-8, 更新通道=action
+2026-11-07 13:12:34.239 I/RunamiGPS [APP] [Akari.Runami.GPS] XposedStateCheck (模块激活状态检查): Xposed 模块已激活 (API 101)
+2026-11-07 13:12:34.354 W/RunamiGPS [APP] [Akari.Runami.GPS] XposedStateCheck (模块激活状态检查): Xposed 模块未激活，请在 LSPosed / Vector 中启用
+2026-11-07 13:13:11.349 I/RunamiGPS [APP] [Akari.Runami.GPS] App.onCreate (应用启动): 版本=Action-9, 语言=system, 当前伪装状态=开启 (35.585522, 140.161133)
+2026-11-07 13:13:11.405 I/RunamiGPS [APP] [Akari.Runami.GPS] UpdateChecker.autoCheck (启动自动检查更新): 当前版本=Action-9, 更新通道=release
+2026-11-07 13:13:11.568 I/RunamiGPS [APP] [Akari.Runami.GPS] XposedStateCheck (模块激活状态检查): Xposed 模块已激活 · ACTIVE (SelfHook=true, XSharedPrefs=true, API=102)
+2026-11-07 13:13:27.097 I/RunamiGPS [APP] [Akari.Runami.GPS] UpdateChecker.manualCheck (手动触发检查更新): 当前版本=Action-9, 更新通道=release
+2026-11-07 13:13:27.127 I/RunamiGPS [APP] [Akari.Runami.GPS] UpdateChecker.getLatestRelease (已是最新版本): 通道=release, 当前版本=Action-9
+2026-11-07 13:13:35.052 I/RunamiGPS [APP] [Akari.Runami.GPS] Settings.putString (update_channel): 配置项 update_channel 已更新为 action
+2026-11-07 13:15:36.059 I/RunamiGPS [LOC:SPOOFED] [com.google.android.gms] HookEntry.initHooks (免重启进程内注入): 已挂载 Binder/AIDL 与 SDK 双层拦截钩子 · 当前伪装开启 (35.585621, 140.161265) acc=10.0m
+2026-11-07 13:15:36.169 I/RunamiGPS [LOC:SPOOFED] [com.google.android.webview] HookEntry.initHooks (免重启进程内注入): 已挂载 Binder/AIDL 与 SDK 双层拦截钩子 · 当前伪装开启 (35.585621, 140.161265) acc=10.0m
+2026-11-07 13:17:03.645 I/RunamiGPS [LOC:SPOOFED] [com.microsoft.emmx] HookEntry.initHooks (免重启进程内注入): 已挂载 Binder/AIDL 与 SDK 双层拦截钩子 · 当前伪装开启 (35.585764, 140.161299) acc=10.0m
+2026-11-07 13:17:23.791 I/RunamiGPS [LOC:SPOOFED] [com.microsoft.emmx] GmsLocationResult.getLastLocation: GMS 返回伪装位置 (35.585638, 140.161089) acc=10.0m
+2026-11-07 13:17:23.792 I/RunamiGPS [LOC:SPOOFED] [com.microsoft.emmx] Location.getLatitude/getLongitude: 直接读取坐标 -> 返回伪装位置 (35.585638, 140.161089) acc=10.0m
+2026-11-07 13:17:34.903 I/RunamiGPS [LOC:SPOOFED] [com.microsoft.emmx] GmsLocationResult.getLastLocation: GMS 返回伪装位置 (35.585737, 140.161265) acc=10.0m
+2026-11-07 13:17:34.904 I/RunamiGPS [LOC:SPOOFED] [com.microsoft.emmx] Location.getLatitude/getLongitude: 直接读取坐标 -> 返回伪装位置 (35.585737, 140.161265) acc=10.0m
+2026-11-07 13:17:35.399 I/RunamiGPS [LOC:SPOOFED] [com.google.android.gm] HookEntry.initHooks (免重启进程内注入): 已挂载 Binder/AIDL 与 SDK 双层拦截钩子 · 当前伪装开启 (35.585818, 140.161310) acc=10.0m
+2026-11-07 13:17:36.933 I/RunamiGPS [LOC:SPOOFED] [com.google.android.gms] HookEntry.initHooks (免重启进程内注入): 已挂载 Binder/AIDL 与 SDK 双层拦截钩子 · 当前伪装开启 (35.585656, 140.161442) acc=10.0m

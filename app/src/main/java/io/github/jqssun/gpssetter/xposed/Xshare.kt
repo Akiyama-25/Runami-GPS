@@ -57,4 +57,7 @@ class Xshare {
 
     val accuracy: String?
         get() = pref().getString("accuracy_level", "10")
+
+    val logLevel: String
+        get() = pref().getString("log_level", "ERROR") ?: "ERROR"
 }

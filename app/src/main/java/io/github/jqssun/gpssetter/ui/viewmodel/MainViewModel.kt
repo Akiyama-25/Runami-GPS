@@ -97,9 +97,10 @@ class MainViewModel @Inject constructor(
         prefManger.update(start, la, ln)
         val coordStr = String.format(Locale.US, "(%.6f, %.6f)", la, ln)
         AppLogger.logApp(
-            action = if (start) "PrefManager.update (开启/更新伪装位置)" else "PrefManager.update (关闭定位伪装)",
-            details = "状态=${if (start) "已开启" else "已关闭"}, 坐标=$coordStr, 精度=${prefManger.accuracy}m, 随机偏移=${prefManger.isRandomPosition}, 系统GNSS增强=${prefManger.isSystemHooked}",
-            isSpoofed = start
+            action = if (start) "PrefManager.update (开启/更新伪装位置)" else "PrefManager.update (停止定位伪装)",
+            details = "state=${if (start) "STARTED" else "STOPPED"} | coord=$coordStr | accuracy=${prefManger.accuracy}m | randomJitter=${prefManger.isRandomPosition} | deepBinderGnss=${prefManger.isSystemHooked} | prefsWorldReadable=true",
+            isSpoofed = start,
+            level = LogEntry.LEVEL_INFO
         )
     }
 
@@ -110,8 +111,9 @@ class MainViewModel @Inject constructor(
         val id = favoriteRepository.addNewFavorite(favorite)
         _response.postValue(id)
         AppLogger.logApp(
-            action = "FavoriteRepository.addNewFavorite (新增收藏)",
-            details = "名称=${favorite.address}, 坐标=(${favorite.lat}, ${favorite.lng})"
+            action = "FavoriteRepository.addNewFavorite (新增收藏位置)",
+            details = "rowId=$id | favId=${favorite.id} | name=\"${favorite.address}\" | lat=${favorite.lat} | lng=${favorite.lng}",
+            level = if (id == -1L) LogEntry.LEVEL_ERROR else LogEntry.LEVEL_INFO
         )
     }
 
@@ -137,8 +139,9 @@ class MainViewModel @Inject constructor(
     fun deleteFavorite(favorite: Favorite) = onIO {
         favoriteRepository.deleteFavorite(favorite)
         AppLogger.logApp(
-            action = "FavoriteRepository.deleteFavorite (删除收藏)",
-            details = "名称=${favorite.address}, 坐标=(${favorite.lat}, ${favorite.lng})"
+            action = "FavoriteRepository.deleteFavorite (删除收藏位置)",
+            details = "favId=${favorite.id} | name=\"${favorite.address}\" | lat=${favorite.lat} | lng=${favorite.lng}",
+            level = LogEntry.LEVEL_INFO
         )
     }
 
@@ -160,7 +163,8 @@ class MainViewModel @Inject constructor(
         viewModelScope.launch {
             AppLogger.logApp(
                 action = "UpdateChecker.autoCheck (启动自动检查更新)",
-                details = "当前版本=${BuildConfig.VERSION_NAME}, 更新通道=${prefManger.updateChannel}"
+                details = "currentVersion=${BuildConfig.VERSION_NAME} | tag=${BuildConfig.TAG_NAME} | channel=${prefManger.updateChannel}",
+                level = LogEntry.LEVEL_DEBUG
             )
             withContext(Dispatchers.IO) {
                 checkUpdates.clearCachedDownloads(appContext)
@@ -170,7 +174,8 @@ class MainViewModel @Inject constructor(
                 if (it != null) {
                     AppLogger.logApp(
                         action = "UpdateChecker.getLatestRelease (检测到新版本)",
-                        details = "通道=${prefManger.updateChannel}, 最新版本=${it.name}"
+                        details = "channel=${prefManger.updateChannel} | latestName=${it.name} | asset=${it.assetName} | url=${it.assetUrl} | timestamp=${it.timestamp}",
+                        level = LogEntry.LEVEL_INFO
                     )
                 }
             }
@@ -181,7 +186,8 @@ class MainViewModel @Inject constructor(
         viewModelScope.launch {
             AppLogger.logApp(
                 action = "UpdateChecker.manualCheck (手动触发检查更新)",
-                details = "当前版本=${BuildConfig.VERSION_NAME}, 更新通道=${prefManger.updateChannel}"
+                details = "currentVersion=${BuildConfig.VERSION_NAME} | tag=${BuildConfig.TAG_NAME} | channel=${prefManger.updateChannel}",
+                level = LogEntry.LEVEL_INFO
             )
             withContext(Dispatchers.IO) {
                 checkUpdates.clearCachedDownloads(appContext)
@@ -191,12 +197,14 @@ class MainViewModel @Inject constructor(
                 if (result != null) {
                     AppLogger.logApp(
                         action = "UpdateChecker.getLatestRelease (检测到新版本)",
-                        details = "通道=${prefManger.updateChannel}, 最新版本=${result.name}"
+                        details = "channel=${prefManger.updateChannel} | latestName=${result.name} | asset=${result.assetName} | url=${result.assetUrl}",
+                        level = LogEntry.LEVEL_INFO
                     )
                 } else {
                     AppLogger.logApp(
                         action = "UpdateChecker.getLatestRelease (已是最新版本)",
-                        details = "通道=${prefManger.updateChannel}, 当前版本=${BuildConfig.VERSION_NAME}"
+                        details = "channel=${prefManger.updateChannel} | currentVersion=${BuildConfig.VERSION_NAME} | tag=${BuildConfig.TAG_NAME}",
+                        level = LogEntry.LEVEL_DEBUG
                     )
                 }
                 onResult(result)

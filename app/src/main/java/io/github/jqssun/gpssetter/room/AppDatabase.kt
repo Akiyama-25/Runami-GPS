@@ -9,7 +9,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-@Database(entities = [Favorite::class, LogEntry::class], version = 2, exportSchema = false)
+@Database(entities = [Favorite::class, LogEntry::class], version = 3, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun favoriteDao(): FavoriteDao
     abstract fun logDao(): LogDao
@@ -41,6 +41,14 @@ abstract class AppDatabase : RoomDatabase() {
                 )
                 db.execSQL(
                     "CREATE UNIQUE INDEX IF NOT EXISTS `index_log_entries_log_uid` ON `log_entries` (`log_uid`)"
+                )
+            }
+        }
+
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "ALTER TABLE `log_entries` ADD COLUMN `level` TEXT NOT NULL DEFAULT 'INFO'"
                 )
             }
         }

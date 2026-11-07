@@ -41,6 +41,10 @@
     <string name="log_status_spoofing_on">伪装开启 (%1$.5f, %2$.5f)</string>
     <string name="log_status_spoofing_off">伪装未开启</string>
     <string name="log_status_summary_format">状态: %1$s | 总计: %2$d 条 (自身: %3$d · 请求: %4$d · 已伪装: %5$d)</string>
+    <string name="log_level_title">日志记录层级（定位请求不受限）</string>
+    <string name="log_level_dialog_title">选择自身日志层级（定位请求记录不受层级影响）</string>
+    <string name="log_level_chip_default">层级: ERROR</string>
+    <string name="log_level_chip_format">层级: %1$s</string>
 
     <!-- Errors -->
     <string name="error_xposed_module_missing">Xposed 模块尚未激活</string>

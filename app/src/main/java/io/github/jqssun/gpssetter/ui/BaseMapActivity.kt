@@ -207,22 +207,25 @@ abstract class BaseMapActivity : AppCompatActivity() {
                                             lat = result.lat
                                             lon = result.lon
                                             AppLogger.logApp(
-                                                action = "MapSearch.onComplete (地址/坐标搜索)",
+                                                action = "MapSearch.onComplete (地址/坐标解析完成)",
                                                 details = String.format(
                                                     Locale.US,
-                                                    "关键词=\"%s\" -> (%.6f, %.6f)",
+                                                    "query=\"%s\" | resolvedLat=%.6f | resolvedLng=%.6f | isSpoofActive=%s",
                                                     getInput,
                                                     lat,
-                                                    lon
-                                                )
+                                                    lon,
+                                                    viewModel.isStarted
+                                                ),
+                                                level = io.github.jqssun.gpssetter.room.LogEntry.LEVEL_INFO
                                             )
                                             moveMapToNewLocation(true)
                                         }
                                         is SearchProgress.Fail -> {
                                             progress.visibility = View.GONE
                                             AppLogger.logApp(
-                                                action = "MapSearch.onFail (搜索失败)",
-                                                details = "关键词=\"$getInput\", 原因=${result.error}"
+                                                action = "MapSearch.onFail (地址/坐标搜索失败)",
+                                                details = "query=\"$getInput\" | error=${result.error} | networkConnected=${isNetworkConnected()}",
+                                                level = io.github.jqssun.gpssetter.room.LogEntry.LEVEL_ERROR
                                             )
                                             showToast(result.error!!)
                                         }
@@ -268,10 +271,11 @@ abstract class BaseMapActivity : AppCompatActivity() {
             AppLogger.logApp(
                 action = "XposedStateCheck (模块激活状态检查)",
                 details = if (isXposed) {
-                    "Xposed 模块已激活 · $statusSummary"
+                    "state=ACTIVE | $statusSummary | spoofStarted=${viewModel.isStarted}"
                 } else {
-                    "Xposed 模块未激活，请在 LSPosed / Vector 中启用 · $statusSummary"
-                }
+                    "state=INACTIVE | Xposed 模块未激活，请在 LSPosed / Vector 管理器中启用 | $statusSummary"
+                },
+                level = if (isXposed) io.github.jqssun.gpssetter.room.LogEntry.LEVEL_INFO else io.github.jqssun.gpssetter.room.LogEntry.LEVEL_ERROR
             )
             if (!isXposed) {
                 xposedDialog = MaterialAlertDialogBuilder(this).run {
@@ -343,11 +347,14 @@ abstract class BaseMapActivity : AppCompatActivity() {
                     action = "Favorite.onItemClick (选择收藏位置)",
                     details = String.format(
                         Locale.US,
-                        "名称=\"%s\", 坐标=(%.6f, %.6f)",
+                        "id=%s | address=\"%s\" | lat=%.6f | lng=%.6f | spoofStarted=%s",
+                        it.id,
                         it.address,
                         lat,
-                        lon
-                    )
+                        lon,
+                        viewModel.isStarted
+                    ),
+                    level = io.github.jqssun.gpssetter.room.LogEntry.LEVEL_INFO
                 )
             }
             moveMapToNewLocation(true)
@@ -524,8 +531,20 @@ abstract class BaseMapActivity : AppCompatActivity() {
                         lat = location.latitude
                         lon = location.longitude
                         AppLogger.logApp(
-                            action = "BaseMapActivity.getLastLocation (获取本机当前位置)",
-                            details = String.format(Locale.US, "坐标=(%.6f, %.6f)", lat, lon)
+                            action = "BaseMapActivity.getLastLocation (获取本机当前真实位置)",
+                            details = String.format(
+                                Locale.US,
+                                "provider=%s | lat=%.6f | lng=%.6f | acc=%.1fm | alt=%.1fm | speed=%.2fm/s | bearing=%s | isMock=%s",
+                                location.provider,
+                                lat,
+                                lon,
+                                location.accuracy,
+                                location.altitude,
+                                location.speed,
+                                if (location.hasBearing()) String.format(Locale.US, "%.1f°", location.bearing) else "N/A(sensor)",
+                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) location.isMock else location.isFromMockProvider
+                            ),
+                            level = io.github.jqssun.gpssetter.room.LogEntry.LEVEL_DEBUG
                         )
                         moveMapToNewLocation(true)
                     }

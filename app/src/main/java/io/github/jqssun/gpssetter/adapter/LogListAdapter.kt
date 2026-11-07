@@ -34,10 +34,27 @@ class LogListAdapter(
                 cornerRadius = 16f
             }
 
+            val normalizedLevel = LogEntry.normalizeLevel(entry.level)
             if (entry.category == LogEntry.CATEGORY_APP) {
-                badge.text = ctx.getString(R.string.log_badge_app)
-                bg.setColor(Color.parseColor("#263B82F6"))
-                badge.setTextColor(Color.parseColor("#3B82F6"))
+                badge.text = "${ctx.getString(R.string.log_badge_app)} · $normalizedLevel"
+                when (normalizedLevel) {
+                    LogEntry.LEVEL_ERROR -> {
+                        bg.setColor(Color.parseColor("#26EF4444"))
+                        badge.setTextColor(Color.parseColor("#EF4444"))
+                    }
+                    LogEntry.LEVEL_WARN -> {
+                        bg.setColor(Color.parseColor("#26F59E0B"))
+                        badge.setTextColor(Color.parseColor("#F59E0B"))
+                    }
+                    LogEntry.LEVEL_DEBUG -> {
+                        bg.setColor(Color.parseColor("#268B5CF6"))
+                        badge.setTextColor(Color.parseColor("#8B5CF6"))
+                    }
+                    else -> {
+                        bg.setColor(Color.parseColor("#263B82F6"))
+                        badge.setTextColor(Color.parseColor("#3B82F6"))
+                    }
+                }
             } else if (entry.isSpoofed) {
                 badge.text = ctx.getString(R.string.log_badge_spoofed)
                 bg.setColor(Color.parseColor("#2610B981"))
@@ -54,7 +71,10 @@ class LogListAdapter(
                 timeFormat.format(Date(entry.timestamp))
             }
             actionText.text = entry.action
-            detailsText.text = entry.details
+            // Format pipe-delimited detailed log fields cleanly across lines for readability in UI
+            detailsText.text = entry.details.replace(" | ", "\n• ").let {
+                if (entry.details.contains(" | ")) "• $it" else it
+            }
 
             itemView.setOnClickListener {
                 onItemClick?.invoke(entry)

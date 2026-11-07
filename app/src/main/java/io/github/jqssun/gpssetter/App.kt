@@ -33,13 +33,14 @@ class App : Application() {
         AppCompatDelegate.setDefaultNightMode(PrefManager.darkTheme)
         LocaleHelper.applyLanguage(PrefManager.appLanguage)
         val spoofStatus = if (PrefManager.isStarted) {
-            String.format(java.util.Locale.US, "开启 (%.6f, %.6f)", PrefManager.getLat, PrefManager.getLng)
+            String.format(java.util.Locale.US, "ACTIVE(lat=%.6f, lng=%.6f, acc=%sm, random=%s, gnss=%s)", PrefManager.getLat, PrefManager.getLng, PrefManager.accuracy ?: "10", PrefManager.isRandomPosition, PrefManager.isSystemHooked)
         } else {
-            "关闭"
+            "INACTIVE"
         }
         AppLogger.logApp(
-            action = "App.onCreate (应用启动)",
-            details = "版本=${BuildConfig.VERSION_NAME}, 语言=${PrefManager.appLanguage}, 当前伪装状态=$spoofStatus"
+            action = "App.onCreate (应用进程初始化)",
+            details = "version=${BuildConfig.VERSION_NAME}(${BuildConfig.VERSION_CODE}) | pkg=${BuildConfig.APPLICATION_ID} | lang=${PrefManager.appLanguage} | theme=${PrefManager.darkTheme} | logLevel=${PrefManager.logLevel} | spoofState=$spoofStatus",
+            level = io.github.jqssun.gpssetter.room.LogEntry.LEVEL_INFO
         )
     }
 }

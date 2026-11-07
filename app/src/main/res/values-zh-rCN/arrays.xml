@@ -25,4 +25,11 @@
         <item>Release（正式版通道）</item>
         <item>Action（CI 构建通道）</item>
     </string-array>
+
+    <string-array name="log_level_texts">
+        <item>ERROR — 仅错误（默认，定位请求始终完整记录）</item>
+        <item>WARN — 警告与错误</item>
+        <item>INFO — 常规运行信息、警告与错误</item>
+        <item>DEBUG — 全部详细调试与运行日志</item>
+    </string-array>
 </resources>

@@ -22,6 +22,7 @@ object PrefManager {
     private const val DISABLE_UPDATE = "update_disabled"
     private const val UPDATE_CHANNEL = "update_channel"
     private const val ENABLE_JOYSTICK = "joystick_enabled"
+    private const val LOG_LEVEL = "log_level"
 
     private val pref: SharedPreferences by lazy {
         try {
@@ -83,6 +84,13 @@ object PrefManager {
     var isJoystickEnabled: Boolean
         get() = pref.getBoolean(ENABLE_JOYSTICK, false)
         set(value) = pref.edit().putBoolean(ENABLE_JOYSTICK, value).apply()
+
+    var logLevel: String
+        get() = pref.getString(LOG_LEVEL, "ERROR") ?: "ERROR"
+        set(value) {
+            pref.edit().putString(LOG_LEVEL, value).apply()
+            makeWorldReadable()
+        }
 
     fun update(start: Boolean, la: Double, ln: Double) {
         val prefEditor = pref.edit()

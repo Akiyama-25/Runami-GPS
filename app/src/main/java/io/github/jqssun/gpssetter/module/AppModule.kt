@@ -46,7 +46,7 @@ object AppModule {
     @Singleton
     fun provideDatabase(application: Application, callback: AppDatabase.Callback): AppDatabase =
         Room.databaseBuilder(application, AppDatabase::class.java, "user_database")
-            .addMigrations(AppDatabase.MIGRATION_1_2)
+            .addMigrations(AppDatabase.MIGRATION_1_2, AppDatabase.MIGRATION_2_3)
             .allowMainThreadQueries()
             .fallbackToDestructiveMigration()
             .addCallback(callback)

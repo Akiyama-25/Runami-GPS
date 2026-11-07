@@ -59,4 +59,19 @@
         <item>action</item>
     </string-array>
 
+    <!-- LogLevel Preference -->
+    <string-array name="log_level_texts">
+        <item>ERROR — Errors only (Default, Location requests always recorded)</item>
+        <item>WARN — Warnings &amp; Errors</item>
+        <item>INFO — Standard runtime info, Warnings &amp; Errors</item>
+        <item>DEBUG — All detailed debug &amp; runtime logs</item>
+    </string-array>
+
+    <string-array name="log_level_values" translatable="false">
+        <item>ERROR</item>
+        <item>WARN</item>
+        <item>INFO</item>
+        <item>DEBUG</item>
+    </string-array>
+
 </resources>
