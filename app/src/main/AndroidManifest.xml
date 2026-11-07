@@ -68,6 +68,15 @@
             android:exported="true"
             tools:ignore="ExportedContentProvider" />
 
+        <receiver
+            android:name=".utils.LogBroadcastReceiver"
+            android:exported="true"
+            tools:ignore="ExportedReceiver">
+            <intent-filter>
+                <action android:name="${applicationId}.ACTION_LOG_BATCH" />
+            </intent-filter>
+        </receiver>
+
         <meta-data
             android:name="xposedmodule"
             android:value="true" />
@@ -76,7 +85,7 @@
             android:value="@string/xposed_desc" />
         <meta-data
             android:name="xposedminversion"
-            android:value="101" />
+            android:value="93" />
         <meta-data
             android:name="xposedtargetversion"
             android:value="101" />

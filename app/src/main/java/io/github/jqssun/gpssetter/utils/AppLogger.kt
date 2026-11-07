@@ -64,7 +64,9 @@ object AppLogger {
 
     fun requestFlushFromHookedApps(context: Context) {
         runCatching {
-            val intent = Intent(ACTION_REQUEST_LOGS)
+            val intent = Intent(ACTION_REQUEST_LOGS).apply {
+                addFlags(Intent.FLAG_INCLUDE_STOPPED_PACKAGES or Intent.FLAG_RECEIVER_FOREGROUND)
+            }
             context.sendBroadcast(intent)
         }
     }

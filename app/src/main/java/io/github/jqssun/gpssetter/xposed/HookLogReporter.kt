@@ -8,17 +8,22 @@ import android.content.IntentFilter
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import androidx.annotation.Keep
 import de.robv.android.xposed.XposedBridge
 import io.github.jqssun.gpssetter.BuildConfig
 import io.github.jqssun.gpssetter.room.LogEntry
 import io.github.jqssun.gpssetter.utils.AppLogger
 import io.github.jqssun.gpssetter.utils.LogContentProvider
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentLinkedDeque
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
 
+@Keep
 object HookLogReporter {
 
     private data class QueuedLog(
@@ -33,6 +38,7 @@ object HookLogReporter {
 
     private const val MAX_BUFFER_SIZE = 250
     private val logQueue = ConcurrentLinkedDeque<QueuedLog>()
+    private val recentHistory = ConcurrentLinkedDeque<QueuedLog>()
     private val lastLogTimeByMethod = ConcurrentHashMap<String, Long>()
     private val isFlushReceiverRegistered = AtomicBoolean(false)
     private val executor = Executors.newSingleThreadExecutor { r ->
@@ -60,9 +66,10 @@ object HookLogReporter {
             lastLogTimeByMethod[key] = now
         }
 
-        val statusLabel = if (isSpoofed) "SPOOFED" else "PASSTHROUGH"
+        val tag = if (isSpoofed) "LOC:SPOOFED" else "LOC:PASSTHROUGH"
         runCatching {
-            XposedBridge.log("[RunamiGPS][$statusLabel][$packageName] $action | $details")
+            val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.US)
+            XposedBridge.log("${sdf.format(Date(now))} I/RunamiGPS [$tag] [$packageName] $action: $details")
         }
 
         val item = QueuedLog(
@@ -80,9 +87,14 @@ object HookLogReporter {
             logQueue.pollFirst()
         }
 
+        recentHistory.addLast(item)
+        while (recentHistory.size > MAX_BUFFER_SIZE) {
+            recentHistory.pollFirst()
+        }
+
         executor.execute {
             ensureFlushReceiverRegistered()
-            flushLogsToHost()
+            flushLogsToHost(includeRecentHistory = false)
         }
     }
 
@@ -95,7 +107,7 @@ object HookLogReporter {
             val receiver = object : BroadcastReceiver() {
                 override fun onReceive(context: Context?, intent: Intent?) {
                     if (intent?.action == AppLogger.ACTION_REQUEST_LOGS) {
-                        executor.execute { flushLogsToHost() }
+                        executor.execute { flushLogsToHost(includeRecentHistory = true) }
                     }
                 }
             }
@@ -110,9 +122,14 @@ object HookLogReporter {
         }
     }
 
-    private fun flushLogsToHost() {
+    private fun flushLogsToHost(includeRecentHistory: Boolean) {
         val appContext = runCatching { AndroidAppHelper.currentApplication() }.getOrNull() ?: return
-        val snapshot = logQueue.toList().takeLast(60)
+        val sourceList = if (includeRecentHistory) {
+            (recentHistory.toList() + logQueue.toList()).distinctBy { it.uid }
+        } else {
+            logQueue.toList()
+        }
+        val snapshot = sourceList.takeLast(60)
         if (snapshot.isEmpty()) return
 
         val uids = ArrayList<String>(snapshot.size)
@@ -143,7 +160,7 @@ object HookLogReporter {
             putBooleanArray(AppLogger.EXTRA_SPOOFED, spoofed)
         }
 
-        var deliveredViaProvider = false
+        var delivered = false
         runCatching {
             val res = appContext.contentResolver.call(
                 providerUri,
@@ -152,20 +169,30 @@ object HookLogReporter {
                 bundle
             )
             if (res?.getBoolean(LogContentProvider.KEY_OK) == true) {
-                deliveredViaProvider = true
+                delivered = true
             }
         }
 
-        if (deliveredViaProvider) {
-            val sentUids = uids.toHashSet()
-            logQueue.removeIf { sentUids.contains(it.uid) }
-        } else {
+        if (!delivered) {
             runCatching {
-                val broadcastIntent = Intent(AppLogger.ACTION_LOG_BATCH).apply {
+                val explicitBroadcast = Intent(AppLogger.ACTION_LOG_BATCH).apply {
+                    setPackage(BuildConfig.APPLICATION_ID)
+                    addFlags(Intent.FLAG_INCLUDE_STOPPED_PACKAGES or Intent.FLAG_RECEIVER_FOREGROUND)
                     putExtras(bundle)
                 }
-                appContext.sendBroadcast(broadcastIntent)
+                appContext.sendBroadcast(explicitBroadcast)
+                val implicitBroadcast = Intent(AppLogger.ACTION_LOG_BATCH).apply {
+                    addFlags(Intent.FLAG_INCLUDE_STOPPED_PACKAGES or Intent.FLAG_RECEIVER_FOREGROUND)
+                    putExtras(bundle)
+                }
+                appContext.sendBroadcast(implicitBroadcast)
+                delivered = true
             }
+        }
+
+        if (delivered) {
+            val sentUids = uids.toHashSet()
+            logQueue.removeIf { sentUids.contains(it.uid) }
         }
     }
 }

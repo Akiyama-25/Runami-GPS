@@ -32,9 +32,14 @@ class App : Application() {
         commonInit()
         AppCompatDelegate.setDefaultNightMode(PrefManager.darkTheme)
         LocaleHelper.applyLanguage(PrefManager.appLanguage)
+        val spoofStatus = if (PrefManager.isStarted) {
+            String.format(java.util.Locale.US, "开启 (%.6f, %.6f)", PrefManager.getLat, PrefManager.getLng)
+        } else {
+            "关闭"
+        }
         AppLogger.logApp(
             action = "App.onCreate (应用启动)",
-            details = "版本=${BuildConfig.VERSION_NAME}, 语言=${PrefManager.appLanguage}, 当前伪装状态=${if (PrefManager.isStarted) "开启 (${PrefManager.getLat}, ${PrefManager.getLng})" else "关闭"}"
+            details = "版本=${BuildConfig.VERSION_NAME}, 语言=${PrefManager.appLanguage}, 当前伪装状态=$spoofStatus"
         )
     }
 }

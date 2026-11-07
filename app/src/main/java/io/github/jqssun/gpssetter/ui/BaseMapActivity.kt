@@ -264,9 +264,14 @@ abstract class BaseMapActivity : AppCompatActivity() {
         viewModel.isXposed.observe(this) { isXposed ->
             xposedDialog?.dismiss()
             xposedDialog = null
+            val statusSummary = viewModel.getXposedStatusSummary()
             AppLogger.logApp(
                 action = "XposedStateCheck (模块激活状态检查)",
-                details = if (isXposed) "Xposed 模块已激活 (API 101)" else "Xposed 模块未激活，请在 LSPosed / Vector 中启用"
+                details = if (isXposed) {
+                    "Xposed 模块已激活 · $statusSummary"
+                } else {
+                    "Xposed 模块未激活，请在 LSPosed / Vector 中启用 · $statusSummary"
+                }
             )
             if (!isXposed) {
                 xposedDialog = MaterialAlertDialogBuilder(this).run {

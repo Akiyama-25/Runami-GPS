@@ -10,6 +10,7 @@ import android.database.Cursor
 import android.net.Uri
 import android.os.Handler
 import android.os.Looper
+import androidx.annotation.Keep
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.lifecycle.LiveData
@@ -30,6 +31,7 @@ import io.github.jqssun.gpssetter.utils.PrefManager
 import io.github.jqssun.gpssetter.utils.ext.onIO
 import io.github.jqssun.gpssetter.utils.ext.onMain
 import io.github.jqssun.gpssetter.utils.ext.showToast
+import io.github.jqssun.gpssetter.xposed.XposedSelfCheck
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -113,11 +115,23 @@ class MainViewModel @Inject constructor(
         )
     }
 
-    val isXposed = MutableLiveData<Boolean>(true)
+    val isXposed = MutableLiveData<Boolean>()
+
+    @Keep
+    fun isXposedModuleHooked(): Boolean {
+        return XposedSelfCheck.isXposedModuleEnabled()
+    }
+
+    @Keep
     fun updateXposedState() {
-        onMain {
-            isXposed.value = false
+        val active = isXposedModuleHooked() || XposedSelfCheck.isModuleActive(appContext)
+        if (isXposed.value != active) {
+            isXposed.value = active
         }
+    }
+
+    fun getXposedStatusSummary(): String {
+        return XposedSelfCheck.getStatusSummary(appContext)
     }
 
     fun deleteFavorite(favorite: Favorite) = onIO {

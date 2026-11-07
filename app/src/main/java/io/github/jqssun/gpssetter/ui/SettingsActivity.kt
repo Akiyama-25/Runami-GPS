@@ -14,11 +14,11 @@ import android.widget.EditText
 import android.widget.Toast
 import androidx.activity.SystemBarStyle
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.viewModels
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.appcompat.widget.AppCompatButton
-import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.lifecycleScope
 import androidx.preference.DropDownPreference
 import androidx.preference.EditTextPreference
@@ -46,6 +46,9 @@ class ActivitySettings : AppCompatActivity() {
     private val binding by lazy {
         ActivitySettingsBinding.inflate(layoutInflater)
     }
+
+    private val viewModel by viewModels<MainViewModel>()
+    private var updateDialogInstance: AlertDialog? = null
 
     class SettingPreferenceDataStore : PreferenceDataStore() {
         override fun getBoolean(key: String?, defValue: Boolean): Boolean {
@@ -120,6 +123,71 @@ class ActivitySettings : AppCompatActivity() {
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
     }
 
+    fun triggerManualUpdateCheck(pref: Preference) {
+        pref.isEnabled = false
+        showToast(getString(R.string.checking_for_updates))
+        viewModel.manualCheckUpdates { availableUpdate ->
+            if (isFinishing || isDestroyed) return@manualCheckUpdates
+            pref.isEnabled = true
+            if (availableUpdate != null) {
+                showUpdateDialog(availableUpdate)
+            } else {
+                showToast("${getString(R.string.already_latest_version)} (${BuildConfig.VERSION_NAME})")
+            }
+        }
+    }
+
+    private fun showUpdateDialog(availableUpdate: UpdateChecker.Update) {
+        updateDialogInstance?.dismiss()
+        updateDialogInstance = MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.update_available)
+            .setMessage(availableUpdate.changelog)
+            .setPositiveButton(getString(R.string.update_button)) { _, _ ->
+                val view = layoutInflater.inflate(R.layout.update_dialog, null)
+                val progress = view.findViewById<LinearProgressIndicator>(R.id.update_download_progress)
+                val cancel = view.findViewById<AppCompatButton>(R.id.update_download_cancel)
+                val downloadDialog = MaterialAlertDialogBuilder(this)
+                    .setView(view)
+                    .create()
+                cancel.setOnClickListener {
+                    viewModel.cancelDownload(this)
+                    downloadDialog.dismiss()
+                }
+                lifecycleScope.launch {
+                    viewModel.downloadState.collect { state ->
+                        when (state) {
+                            is MainViewModel.State.Downloading -> {
+                                if (state.progress > 0) {
+                                    progress.isIndeterminate = false
+                                    progress.progress = state.progress
+                                }
+                            }
+                            is MainViewModel.State.Done -> {
+                                viewModel.openPackageInstaller(this@ActivitySettings, state.fileUri)
+                                viewModel.clearUpdate()
+                                downloadDialog.dismiss()
+                            }
+                            is MainViewModel.State.Failed -> {
+                                Toast.makeText(
+                                    this@ActivitySettings,
+                                    R.string.bs_update_download_failed,
+                                    Toast.LENGTH_LONG
+                                ).show()
+                                downloadDialog.dismiss()
+                            }
+                            else -> {}
+                        }
+                    }
+                }
+                viewModel.startDownload(this, availableUpdate)
+                downloadDialog.show()
+            }
+            .setNegativeButton(android.R.string.cancel) { _, _ ->
+                viewModel.clearUpdate()
+            }
+            .show()
+    }
+
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         if (item.itemId == android.R.id.home) {
             onBackPressedDispatcher.onBackPressed()
@@ -128,11 +196,7 @@ class ActivitySettings : AppCompatActivity() {
         return super.onOptionsItemSelected(item)
     }
 
-    @AndroidEntryPoint
     class SettingsPreferenceFragment : PreferenceFragmentCompat() {
-
-        private val viewModel by activityViewModels<MainViewModel>()
-        private var updateDialogInstance: AlertDialog? = null
 
         override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
             preferenceManager?.preferenceDataStore = SettingPreferenceDataStore()
@@ -148,18 +212,7 @@ class ActivitySettings : AppCompatActivity() {
             }
 
             findPreference<Preference>("check_update_now")?.setOnPreferenceClickListener { pref ->
-                val ctx = requireContext()
-                pref.isEnabled = false
-                ctx.showToast(ctx.getString(R.string.checking_for_updates))
-                viewModel.manualCheckUpdates { availableUpdate ->
-                    if (!isAdded) return@manualCheckUpdates
-                    pref.isEnabled = true
-                    if (availableUpdate != null) {
-                        showUpdateDialog(availableUpdate)
-                    } else {
-                        ctx.showToast("${ctx.getString(R.string.already_latest_version)} (${BuildConfig.VERSION_NAME})")
-                    }
-                }
+                (activity as? ActivitySettings)?.triggerManualUpdateCheck(pref)
                 true
             }
 
@@ -212,58 +265,6 @@ class ActivitySettings : AppCompatActivity() {
                     true
                 }
             }
-        }
-
-        private fun showUpdateDialog(availableUpdate: UpdateChecker.Update) {
-            val ctx = requireContext()
-            updateDialogInstance?.dismiss()
-            updateDialogInstance = MaterialAlertDialogBuilder(ctx)
-                .setTitle(R.string.update_available)
-                .setMessage(availableUpdate.changelog)
-                .setPositiveButton(getString(R.string.update_button)) { _, _ ->
-                    val view = layoutInflater.inflate(R.layout.update_dialog, null)
-                    val progress = view.findViewById<LinearProgressIndicator>(R.id.update_download_progress)
-                    val cancel = view.findViewById<AppCompatButton>(R.id.update_download_cancel)
-                    val downloadDialog = MaterialAlertDialogBuilder(ctx)
-                        .setView(view)
-                        .create()
-                    cancel.setOnClickListener {
-                        viewModel.cancelDownload(ctx)
-                        downloadDialog.dismiss()
-                    }
-                    viewLifecycleOwner.lifecycleScope.launch {
-                        viewModel.downloadState.collect { state ->
-                            when (state) {
-                                is MainViewModel.State.Downloading -> {
-                                    if (state.progress > 0) {
-                                        progress.isIndeterminate = false
-                                        progress.progress = state.progress
-                                    }
-                                }
-                                is MainViewModel.State.Done -> {
-                                    viewModel.openPackageInstaller(ctx, state.fileUri)
-                                    viewModel.clearUpdate()
-                                    downloadDialog.dismiss()
-                                }
-                                is MainViewModel.State.Failed -> {
-                                    Toast.makeText(
-                                        ctx,
-                                        R.string.bs_update_download_failed,
-                                        Toast.LENGTH_LONG
-                                    ).show()
-                                    downloadDialog.dismiss()
-                                }
-                                else -> {}
-                            }
-                        }
-                    }
-                    viewModel.startDownload(ctx, availableUpdate)
-                    downloadDialog.show()
-                }
-                .setNegativeButton(android.R.string.cancel) { _, _ ->
-                    viewModel.clearUpdate()
-                }
-                .show()
         }
 
         private fun isJoystickRunning(): Boolean {

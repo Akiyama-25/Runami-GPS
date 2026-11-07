@@ -1,0 +1,39 @@
+SDK: 36
+PRODUCT_NAME: houji
+DEVICE_NAME: houji
+BOARD_NAME: houji
+SUPPORTED_ABIS: arm64-v8a
+MANUFACTURER: Xiaomi
+BRAND: Xiaomi
+MODEL: 23127PN0CG
+
+APP_NAME: Runami GPS
+PACKAGE: Akari.Runami.GPS
+VERSION_NAME: Action-7
+VERSION_CODE: 6
+
+1794015520.513 10412 23577 23577 E AndroidRuntime: FATAL EXCEPTION: main
+1794015520.513 10412 23577 23577 E AndroidRuntime: Process: Akari.Runami.GPS, PID: 23577
+1794015520.513 10412 23577 23577 E AndroidRuntime: java.lang.IllegalArgumentException: CreationExtras must have a value by `SAVED_STATE_REGISTRY_OWNER_KEY`
+1794015520.513 10412 23577 23577 E AndroidRuntime: 	at Rl.k(Unknown Source:146)
+1794015520.513 10412 23577 23577 E AndroidRuntime: 	at P0.a(Unknown Source:59)
+1794015520.513 10412 23577 23577 E AndroidRuntime: 	at Xg.a(Unknown Source:10)
+1794015520.513 10412 23577 23577 E AndroidRuntime: 	at n3.g(Unknown Source:77)
+1794015520.513 10412 23577 23577 E AndroidRuntime: 	at n3.f(Unknown Source:12)
+1794015520.513 10412 23577 23577 E AndroidRuntime: 	at ee.getValue(Unknown Source:54)
+1794015520.513 10412 23577 23577 E AndroidRuntime: 	at io.github.jqssun.gpssetter.ui.ActivitySettings$a.b0(Unknown Source:2)
+1794015520.513 10412 23577 23577 E AndroidRuntime: 	at U0.b(Unknown Source:188)
+1794015520.513 10412 23577 23577 E AndroidRuntime: 	at androidx.preference.Preference.u(Unknown Source:19)
+1794015520.513 10412 23577 23577 E AndroidRuntime: 	at i0.onClick(Unknown Source:27)
+1794015520.513 10412 23577 23577 E AndroidRuntime: 	at android.view.View.performClick(Unknown Source:17)
+1794015520.513 10412 23577 23577 E AndroidRuntime: 	at android.view.View.performClickInternal(Unknown Source:3)
+1794015520.513 10412 23577 23577 E AndroidRuntime: 	at android.view.View.-$$Nest$mperformClickInternal(Unknown Source:0)
+1794015520.513 10412 23577 23577 E AndroidRuntime: 	at android.view.View$PerformClick.run(Unknown Source:8)
+1794015520.513 10412 23577 23577 E AndroidRuntime: 	at android.os.Handler.handleCallback(Unknown Source:2)
+1794015520.513 10412 23577 23577 E AndroidRuntime: 	at android.os.Handler.dispatchMessage(Unknown Source:4)
+1794015520.513 10412 23577 23577 E AndroidRuntime: 	at android.os.Looper.loopOnce(Unknown Source:251)
+1794015520.513 10412 23577 23577 E AndroidRuntime: 	at android.os.Looper.loop(Unknown Source:34)
+1794015520.513 10412 23577 23577 E AndroidRuntime: 	at android.app.ActivityThread.main(Unknown Source:165)
+1794015520.513 10412 23577 23577 E AndroidRuntime: 	at java.lang.reflect.Method.invoke(Native Method)
+1794015520.513 10412 23577 23577 E AndroidRuntime: 	at com.android.internal.os.RuntimeInit$MethodAndArgsCaller.run(Unknown Source:9)
+1794015520.513 10412 23577 23577 E AndroidRuntime: 	at com.android.internal.os.ZygoteInit.main(Unknown Source:406)

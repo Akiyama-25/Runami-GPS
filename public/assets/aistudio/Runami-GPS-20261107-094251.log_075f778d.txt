@@ -1,0 +1,86 @@
+=== Runami GPS (Action-8) Log File ===
+Exported: 2026-11-07 09:42:53.893
+Spoofing: ACTIVE (35.583763122558594, 140.15264892578125)
+==========================================================
+[2026-11-07 09:41:32.761] [APP] [Akari.Runami.GPS] XposedStateCheck (模块激活状态检查)
+  -> Xposed 模块未激活，请在 LSPosed / Vector 中启用
+[2026-11-07 09:41:32.613] [APP] [Akari.Runami.GPS] XposedStateCheck (模块激活状态检查)
+  -> Xposed 模块已激活 (API 101)
+[2026-11-07 09:41:32.429] [APP] [Akari.Runami.GPS] UpdateChecker.autoCheck (启动自动检查更新)
+  -> 当前版本=Action-8, 更新通道=action
+[2026-11-07 09:41:32.327] [APP] [Akari.Runami.GPS] App.onCreate (应用启动)
+  -> 版本=Action-8, 语言=system, 当前伪装状态=开启 (35.583763122558594, 140.15264892578125)
+[2026-11-07 09:41:04.421] [APP] [Akari.Runami.GPS] XposedStateCheck (模块激活状态检查)
+  -> Xposed 模块未激活，请在 LSPosed / Vector 中启用
+[2026-11-07 09:41:04.297] [APP] [Akari.Runami.GPS] XposedStateCheck (模块激活状态检查)
+  -> Xposed 模块已激活 (API 101)
+[2026-11-07 09:41:04.007] [APP] [Akari.Runami.GPS] UpdateChecker.autoCheck (启动自动检查更新)
+  -> 当前版本=Action-8, 更新通道=action
+[2026-11-07 09:41:03.867] [APP] [Akari.Runami.GPS] App.onCreate (应用启动)
+  -> 版本=Action-8, 语言=system, 当前伪装状态=开启 (35.583763122558594, 140.15264892578125)
+[2026-11-07 09:39:26.247] [APP] [Akari.Runami.GPS] XposedStateCheck (模块激活状态检查)
+  -> Xposed 模块未激活，请在 LSPosed / Vector 中启用
+[2026-11-07 09:39:22.648] [APP] [Akari.Runami.GPS] XposedStateCheck (模块激活状态检查)
+  -> Xposed 模块未激活，请在 LSPosed / Vector 中启用
+[2026-11-07 09:39:22.547] [APP] [Akari.Runami.GPS] XposedStateCheck (模块激活状态检查)
+  -> Xposed 模块已激活 (API 101)
+[2026-11-07 09:39:22.378] [APP] [Akari.Runami.GPS] UpdateChecker.autoCheck (启动自动检查更新)
+  -> 当前版本=Action-7, 更新通道=action
+[2026-11-07 09:39:22.317] [APP] [Akari.Runami.GPS] App.onCreate (应用启动)
+  -> 版本=Action-7, 当前伪装状态=开启 (35.583763122558594, 140.15264892578125)
+[2026-11-07 09:38:36.488] [APP] [Akari.Runami.GPS] XposedStateCheck (模块激活状态检查)
+  -> Xposed 模块未激活，请在 LSPosed / Vector 中启用
+[2026-11-07 09:37:51.234] [APP] [Akari.Runami.GPS] XposedStateCheck (模块激活状态检查)
+  -> Xposed 模块未激活，请在 LSPosed / Vector 中启用
+[2026-11-07 09:35:06.014] [APP] [Akari.Runami.GPS] XposedStateCheck (模块激活状态检查)
+  -> Xposed 模块未激活，请在 LSPosed / Vector 中启用
+[2026-11-07 09:35:05.819] [APP] [Akari.Runami.GPS] XposedStateCheck (模块激活状态检查)
+  -> Xposed 模块已激活 (API 101)
+[2026-11-07 09:35:05.655] [APP] [Akari.Runami.GPS] UpdateChecker.autoCheck (启动自动检查更新)
+  -> 当前版本=Action-7, 更新通道=action
+[2026-11-07 09:35:05.564] [APP] [Akari.Runami.GPS] App.onCreate (应用启动)
+  -> 版本=Action-7, 当前伪装状态=开启 (35.583763122558594, 140.15264892578125)
+[2026-11-07 09:34:08.804] [APP] [Akari.Runami.GPS] XposedStateCheck (模块激活状态检查)
+  -> Xposed 模块未激活，请在 LSPosed / Vector 中启用
+[2026-11-07 09:34:08.682] [APP] [Akari.Runami.GPS] XposedStateCheck (模块激活状态检查)
+  -> Xposed 模块已激活 (API 101)
+[2026-11-07 09:34:08.425] [APP] [Akari.Runami.GPS] UpdateChecker.autoCheck (启动自动检查更新)
+  -> 当前版本=Action-7, 更新通道=action
+[2026-11-07 09:34:08.270] [APP] [Akari.Runami.GPS] App.onCreate (应用启动)
+  -> 版本=Action-7, 当前伪装状态=开启 (35.583763122558594, 140.15264892578125)
+[2026-11-07 09:06:41.439] [APP] [Akari.Runami.GPS] XposedStateCheck (模块激活状态检查)
+  -> Xposed 模块未激活，请在 LSPosed / Vector 中启用
+[2026-11-07 09:05:34.205] [APP] [Akari.Runami.GPS] PrefManager.update (开启/更新伪装位置)
+  -> 状态=已开启, 坐标=(35.583763, 140.152654), 精度=10m, 随机偏移=true, 系统GNSS增强=true
+[2026-11-07 09:05:34.204] [APP] [Akari.Runami.GPS] MapActivity.onMapClick (点击地图选点)
+  -> 选定坐标=(35.583763, 140.152654), 实时生效=是
+[2026-11-07 09:05:30.143] [APP] [Akari.Runami.GPS] PrefManager.update (开启/更新伪装位置)
+  -> 状态=已开启, 坐标=(35.607404, 140.106537), 精度=10m, 随机偏移=true, 系统GNSS增强=true
+[2026-11-07 09:05:30.140] [APP] [Akari.Runami.GPS] MapSearch.onComplete (地址/坐标搜索)
+  -> 关键词="chiba" -> (35.607404, 140.106537)
+[2026-11-07 09:05:16.655] [APP] [Akari.Runami.GPS] PrefManager.update (开启/更新伪装位置)
+  -> 状态=已开启, 坐标=(40.712799, -74.005997), 精度=10m, 随机偏移=true, 系统GNSS增强=true
+[2026-11-07 09:05:15.038] [APP] [Akari.Runami.GPS] XposedStateCheck (模块激活状态检查)
+  -> Xposed 模块未激活，请在 LSPosed / Vector 中启用
+[2026-11-07 09:04:51.025] [APP] [Akari.Runami.GPS] XposedStateCheck (模块激活状态检查)
+  -> Xposed 模块未激活，请在 LSPosed / Vector 中启用
+[2026-11-07 09:04:29.770] [APP] [Akari.Runami.GPS] XposedStateCheck (模块激活状态检查)
+  -> Xposed 模块未激活，请在 LSPosed / Vector 中启用
+[2026-11-07 09:04:29.677] [APP] [Akari.Runami.GPS] XposedStateCheck (模块激活状态检查)
+  -> Xposed 模块已激活 (API 101)
+[2026-11-07 09:04:17.161] [APP] [Akari.Runami.GPS] XposedStateCheck (模块激活状态检查)
+  -> Xposed 模块未激活，请在 LSPosed / Vector 中启用
+[2026-11-07 09:04:17.056] [APP] [Akari.Runami.GPS] XposedStateCheck (模块激活状态检查)
+  -> Xposed 模块已激活 (API 101)
+[2026-11-07 09:04:16.859] [APP] [Akari.Runami.GPS] UpdateChecker.autoCheck (启动自动检查更新)
+  -> 当前版本=Action-7, 更新通道=action
+[2026-11-07 09:04:16.787] [APP] [Akari.Runami.GPS] App.onCreate (应用启动)
+  -> 版本=Action-7, 当前伪装状态=关闭
+[2026-11-07 08:49:41.929] [APP] [Akari.Runami.GPS] XposedStateCheck (模块激活状态检查)
+  -> Xposed 模块未激活，请在 LSPosed / Vector 中启用
+[2026-11-07 08:49:38.376] [APP] [Akari.Runami.GPS] XposedStateCheck (模块激活状态检查)
+  -> Xposed 模块未激活，请在 LSPosed / Vector 中启用
+[2026-11-07 08:49:38.178] [APP] [Akari.Runami.GPS] XposedStateCheck (模块激活状态检查)
+  -> Xposed 模块已激活 (API 101)
+[2026-11-07 08:49:37.834] [APP] [Akari.Runami.GPS] App.onCreate (应用启动)
+  -> 版本=Action-5, 当前伪装状态=关闭

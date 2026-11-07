@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.Color
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
@@ -33,6 +34,7 @@ import io.github.jqssun.gpssetter.ui.viewmodel.MainViewModel
 import io.github.jqssun.gpssetter.utils.AppLogger
 import io.github.jqssun.gpssetter.utils.PrefManager
 import io.github.jqssun.gpssetter.utils.ext.showToast
+import io.github.jqssun.gpssetter.xposed.XposedSelfCheck
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -52,8 +54,9 @@ class LogActivity : AppCompatActivity() {
     private var selectedCategory: String? = null
     private var searchQuery: String = ""
 
+    // Use application/octet-stream so Android SAF DocumentsUI preserves the exact .log extension without appending .txt
     private val createLogFileLauncher = registerForActivityResult(
-        ActivityResultContracts.CreateDocument("text/plain")
+        ActivityResultContracts.CreateDocument("application/octet-stream")
     ) { uri: Uri? ->
         if (uri != null) {
             saveLogsToUri(uri)
@@ -162,39 +165,77 @@ class LogActivity : AppCompatActivity() {
         binding.logEmptyView.visibility = if (filtered.isEmpty()) View.VISIBLE else View.GONE
     }
 
+    private fun formatLogLine(entry: LogEntry, sdf: SimpleDateFormat): String {
+        val tag = when {
+            entry.category == LogEntry.CATEGORY_APP -> "APP"
+            entry.isSpoofed -> "LOC:SPOOFED"
+            else -> "LOC:PASSTHROUGH"
+        }
+        val level = if (
+            entry.details.contains("未激活") ||
+            entry.details.contains("失败") ||
+            entry.action.contains("Fail", ignoreCase = true) ||
+            entry.action.contains("Error", ignoreCase = true)
+        ) {
+            "W"
+        } else {
+            "I"
+        }
+        val cleanAction = entry.action.replace('\n', ' ').trim()
+        val cleanDetails = entry.details.replace('\n', ' ').trim()
+        return "${sdf.format(Date(entry.timestamp))} $level/RunamiGPS [$tag] [${entry.packageName}] $cleanAction: $cleanDetails"
+    }
+
     private fun copySingleLogToClipboard(entry: LogEntry) {
-        val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.getDefault())
-        val formatted = "[${sdf.format(Date(entry.timestamp))}] [${entry.category}] [${entry.packageName}] ${entry.action}\n${entry.details}"
+        val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.US)
+        val formatted = formatLogLine(entry, sdf)
         val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
         clipboard.setPrimaryClip(ClipData.newPlainText("Runami GPS Log", formatted))
         showToast(getString(R.string.log_copied))
     }
 
     private fun buildLogFileContent(list: List<LogEntry>): String {
-        val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.getDefault())
+        val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.US)
         val sb = StringBuilder()
-        sb.appendLine("=== Runami GPS (${BuildConfig.VERSION_NAME}) Log File ===")
-        sb.appendLine("Exported: ${sdf.format(Date())}")
-        sb.appendLine(
-            "Spoofing: ${
-                if (PrefManager.isStarted) {
-                    "ACTIVE (${PrefManager.getLat}, ${PrefManager.getLng})"
-                } else {
-                    "INACTIVE"
-                }
-            }"
+
+        val spoofingDesc = if (PrefManager.isStarted) {
+            String.format(
+                Locale.US,
+                "ACTIVE (%.6f, %.6f) | Accuracy=%sm | Random=%s | GnssEnhance=%s",
+                PrefManager.getLat,
+                PrefManager.getLng,
+                PrefManager.accuracy ?: "10",
+                PrefManager.isRandomPosition,
+                PrefManager.isSystemHooked
+            )
+        } else {
+            "INACTIVE"
+        }
+
+        sb.appendLine("SDK: ${Build.VERSION.SDK_INT} (Android ${Build.VERSION.RELEASE})")
+        sb.appendLine("PRODUCT_NAME: ${Build.PRODUCT}")
+        sb.appendLine("DEVICE_NAME: ${Build.DEVICE}")
+        sb.appendLine("BOARD_NAME: ${Build.BOARD}")
+        sb.appendLine("SUPPORTED_ABIS: ${Build.SUPPORTED_ABIS.joinToString(",")}")
+        sb.appendLine("MANUFACTURER: ${Build.MANUFACTURER}")
+        sb.appendLine("BRAND: ${Build.BRAND}")
+        sb.appendLine("MODEL: ${Build.MODEL}")
+        sb.appendLine()
+        sb.appendLine("APP_NAME: ${getString(R.string.app_name)}")
+        sb.appendLine("PACKAGE: ${BuildConfig.APPLICATION_ID}")
+        sb.appendLine("VERSION_NAME: ${BuildConfig.VERSION_NAME}")
+        sb.appendLine("VERSION_CODE: ${BuildConfig.VERSION_CODE}")
+        sb.appendLine("XPOSED_STATUS: ${XposedSelfCheck.getStatusSummary(this)}")
+        sb.appendLine("SPOOFING_STATUS: $spoofingDesc")
+        sb.appendLine("EXPORT_TIME: ${sdf.format(Date())}")
+        sb.appendLine()
+
+        // Sort chronologically (oldest first, newest last) for standard .log reading
+        val chronologicalList = list.sortedWith(
+            compareBy<LogEntry> { it.timestamp }.thenBy { it.id }
         )
-        sb.appendLine("==========================================================")
-        for (entry in list) {
-            val tag = if (entry.category == LogEntry.CATEGORY_APP) {
-                "APP"
-            } else if (entry.isSpoofed) {
-                "LOC:SPOOFED"
-            } else {
-                "LOC:PASSTHROUGH"
-            }
-            sb.appendLine("[${sdf.format(Date(entry.timestamp))}] [$tag] [${entry.packageName}] ${entry.action}")
-            sb.appendLine("  -> ${entry.details}")
+        for (entry in chronologicalList) {
+            sb.appendLine(formatLogLine(entry, sdf))
         }
         return sb.toString()
     }
@@ -278,7 +319,7 @@ class LogActivity : AppCompatActivity() {
                     details = "Shared .log file with ${list.size} entries"
                 )
                 val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                    type = "text/plain"
+                    type = "application/octet-stream"
                     putExtra(Intent.EXTRA_STREAM, fileUri)
                     clipData = ClipData.newRawUri("Runami GPS .log", fileUri)
                     addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
