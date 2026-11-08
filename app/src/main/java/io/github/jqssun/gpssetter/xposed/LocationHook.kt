@@ -88,10 +88,26 @@ object LocationHook {
     private val ignorePkg = setOf(
         "android",
         "com.android.location.fused",
+        "com.google.android.gms",
+        "com.google.android.gsf",
         "com.android.phone",
         "com.android.systemui",
+        "com.qualcomm.location",
+        "com.qualcomm.qti.location",
+        "com.xiaomi.location.fused",
+        "com.huawei.hwid",
+        "com.huawei.hms",
+        "com.sec.location.nsflp2",
         BuildConfig.APPLICATION_ID
     )
+
+    fun isIgnoredPackage(pkgName: String?): Boolean {
+        if (pkgName.isNullOrEmpty()) return true
+        if (ignorePkg.contains(pkgName)) return true
+        if (pkgName.startsWith("com.google.android.gms")) return true
+        if (pkgName.startsWith("com.google.android.gsf")) return true
+        return false
+    }
 
     private val hookedListenerClasses = Collections.newSetFromMap(ConcurrentHashMap<Class<*>, Boolean>())
     private val hookedGmsCallbackClasses = Collections.newSetFromMap(ConcurrentHashMap<Class<*>, Boolean>())
@@ -513,7 +529,7 @@ object LocationHook {
     }
 
     private fun isSpoofingActive(packageName: String): Boolean {
-        if (ignorePkg.contains(packageName)) return false
+        if (isIgnoredPackage(packageName)) return false
         updateLocation()
         return isStartedCache
     }
@@ -667,8 +683,8 @@ object LocationHook {
         val pkgName = lpparam.packageName ?: return
 
         // Strictly scope hooks to LSPosed-checked target applications only.
-        // Never touch system_server so no device reboot is ever required and unchecked apps stay 100% isolated.
-        if (ignorePkg.contains(pkgName)) {
+        // Never touch system_server, GMS or provider services so no device reboot is ever required and unchecked apps stay 100% isolated.
+        if (isIgnoredPackage(pkgName)) {
             return
         }
 

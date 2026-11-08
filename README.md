@@ -62,6 +62,7 @@
 | **Android 版本** | Android 8.1 ~ Android 16+（API 27 – 37） |
 | **Xposed 框架** | LSPosed / Vector Manager 等支持 `XSharedPreferences` 的现代框架（兼容 API 93 – 102+） |
 | **系统框架作用域** | **无需勾选** `System Framework (android)`，**无需重启系统** |
+| **Google Play 服务** | **严禁勾选** `com.google.android.gms`（模块已在目标应用内直接劫持 GMS 客户端 SDK，勾选服务本身会导致系统全局定位后台被污染） |
 
 ---
 
@@ -70,7 +71,8 @@
 1. **安装并启用模块**
    - 安装 **Runami GPS** APK。
    - 打开 **LSPosed / Vector** 管理器，启用 **Runami GPS** 模块。
-   - 在模块作用域中**仅勾选需要伪装定位的目标应用**（若目标应用依赖 Google Play 服务融合定位，也可按需勾选相关应用）。
+   - 在模块作用域中**仅勾选需要伪装定位的目标应用**（如浏览器、外服游戏、社交软件等）。
+   - **注意**：**请勿勾选「Google Play 服务 (`com.google.android.gms`)」或「系统框架 (`android`)」**。Runami GPS 已经在目标应用进程内直接集成了底层 Binder 与 GMS 融合定位 SDK 劫持，勾选 GMS 服务本身会导致系统全局定位后台被污染，进而影响未勾选应用的真实定位透传。模块已内置硬性隔离过滤机制。
 2. **设置伪装位置**
    - 打开 **Runami GPS**，在地图上点击选点、使用顶部搜索框搜索地址/经纬度，或从「收藏夹」中选择位置。
    - 点击右下角 **开始** 按钮激活定位伪装（可通过悬浮摇杆或重新选点实时同步更新位置）。
