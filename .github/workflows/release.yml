@@ -390,6 +390,32 @@ jobs:
           files: |
             app/build/outputs/apk/release/Runami-GPS-${{ env.RELEASE_TAG }}.apk
 
+      - name: Clean Up Instabox Build Cache
+        if: always()
+        continue-on-error: true
+        run: |
+          rm -f /tmp/project.tar.gz
+          if [ -n "${INSTABOX_API_KEY:-}" ] && [ -n "${RESOLVED_MACHINE_ID:-}" ]; then
+            npx --yes instabox@latest exec "${RESOLVED_MACHINE_ID}" --timeout 120 -- bash -lc '
+              echo ">>> Instabox disk usage before cleanup:"
+              df -h /tmp "$HOME" || true
+              rm -rf \
+                /tmp/runami-release \
+                /tmp/project.tar.gz \
+                "$HOME/.gradle/caches/build-cache-"* \
+                "$HOME/.gradle/caches/transforms-"* \
+                "$HOME/.gradle/caches/journal-"* \
+                "$HOME/.gradle/caches/8."* \
+                "$HOME/.gradle/caches/9."* \
+                "$HOME/.gradle/daemon" \
+                "$HOME/.gradle/tmp" \
+                "$HOME/.android/build-cache" \
+                /tmp/gradle* /tmp/kotlin* 2>/dev/null || true
+              echo ">>> Instabox disk usage after cleanup:"
+              df -h /tmp "$HOME" || true
+            ' || true
+          fi
+
       - name: Release Instabox Activity Lease
         if: always()
         run: |
