@@ -410,6 +410,8 @@ jobs:
                 "$HOME/.gradle/daemon" \
                 "$HOME/.gradle/tmp" \
                 "$HOME/.android/build-cache" \
+                "${TMPDIR:-/tmp}"/gradle* \
+                "${TMPDIR:-/tmp}"/kotlin* \
                 /tmp/gradle* /tmp/kotlin* 2>/dev/null || true
               echo ">>> Instabox disk usage after cleanup:"
               df -h /tmp "$HOME" || true
